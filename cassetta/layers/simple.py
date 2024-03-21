@@ -93,6 +93,18 @@ class DoNothing(nn.Module):
         return x
 
 
+class MoveDim(nn.Module):
+    """Move dimension in a tensor"""
+
+    def __init__(self, src, dst):
+        super().__init__()
+        self.src = src
+        self.dst = dst
+
+    def forward(self, inp):
+        return inp.movedim(self.src, self.dst)
+
+
 class Hadamard(nn.Module):
     """
     Reparameterize tensors using the Hadamard transform.

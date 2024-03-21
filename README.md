@@ -1,3 +1,3 @@
 # cassetta
 
-A PyTorch toolbox
+A PyTorch toolbox. Under early and active development.

@@ -7,10 +7,11 @@ docs_dir: docs
 theme:
   name: material
   palette:
-    primary: indigo
-    accent: indigo
+    primary: teal
+    accent: teal
   icon:
     repo: fontawesome/brands/github
+    logo: fontawesome/solid/hammer
 plugins:
 - mkdocs-jupyter
 - search
@@ -44,6 +45,11 @@ markdown_extensions:
 - pymdownx.snippets
 - pymdownx.arithmatex:
     generic: true
+- pymdownx.superfences:
+    custom_fences:
+    - name: mermaid
+      class: mermaid
+      format: !!python/name:pymdownx.superfences.fence_code_format
 extra_css:
   - stylesheets/extra.css
 extra_javascript:
@@ -55,14 +61,16 @@ nav:
 - Home: index.md
 - Installation: install.md
 - API:
-  - cassetta: api/index.md
-  - cassetta.core: api/core.md
-  - cassetta.functional: api/functional.md
+  - cassetta: api/cassetta.md
+  - cassetta.models: api/models.md
+  - cassetta.backbones: api/backbones.md
   - cassetta.layers: api/layers.md
   - cassetta.losses: api/losses.md
   - cassetta.metrics: api/metrics.md
-  - cassetta.models: api/models.md
   - cassetta.training: api/training.md
+  - cassetta.inference: api/inference.md
+  - cassetta.functional: api/functional.md
+  - cassetta.core: api/core.md
 
 watch:
 - cassetta

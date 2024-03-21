@@ -1,138 +1,401 @@
+__all__ = [
+    'DownConv',
+    'UpConv',
+    'DownInterpol',
+    'UpInterpol',
+    'DownPool',
+    'UpPool',
+]
 from torch import nn
+from torch import Tensor
+from typing import Optional
+from cassetta.core.utils import ensure_list
+from cassetta.core.typing import OneOrSeveral, InterpolationType, BoundType
+from .simple import DoNothing
+from .interpol import Resize
 
 
-class Upsample(nn.Module):
-    """Upsample a tensor using corners as anchors"""
+class DownConv(nn.Module):
+    """
+    Downsample using a strided convolution.
 
-    def __init__(self, factor=2, anchor='center'):
+    !!! warning "This layer includes no activation/norm/dropout"
+    """
+
+    def __init__(
+        self,
+        ndim: int,
+        inp_channels: int,
+        out_channels: Optional[int] = None,
+        size: OneOrSeveral[int] = 2,
+    ):
         """
-
         Parameters
         ----------
-        factor : int, Upsampling factor
-        anchor : {'center', 'edge'}
-            Use the center or the edges of the corner voxels as anchors
-
+        ndim : int
+            Number of spatial dimensions
+        inp_channels : int
+            Number of input channels
+        out_channels : int, ddefault=`inp_channels`
+            Number of output channels
+        size : [list of] int
+            Downsampling size
         """
+        out_channels = out_channels or inp_channels
         super().__init__()
-        self.factor = factor
-        self.anchor = anchor
+        Conv = getattr(nn, f'Conv{ndim}d')
+        self.conv = Conv(
+            in_channels=inp_channels,
+            out_channels=out_channels,
+            stride=size,
+            kernel_size=size,
+            padding=0,
+        )
 
-    def forward(self, image, shape=None):
+    def __str__(self) -> str:
+        return self.conv.__str__()
+
+    def __repr__(self) -> str:
+        return self.conv.__repr__()
+
+    def forward(self, inp):
         """
-
         Parameters
         ----------
-        image : (B, D, *shape) tensor
-        shape : list[int], optional
+        inp : (B, inp_channels, *inp_spatial) tensor
+            Input tensor
 
         Returns
         -------
-        image : (B, D, *shape) tensor
-
+        out : (B, out_channels, *out_spatial) tensor
+            Output downsampled tensor
         """
-        factor = None if shape else self.factor
-        return warps.upsample(image, factor, shape, self.anchor)
+        return self.conv(inp)
 
 
-class Downsample(nn.Module):
-    """Downsample a tensor using corners as anchors"""
+class UpConv(nn.Module):
+    """
+    Upsample using a strided convolution.
 
-    def __init__(self, factor=2, anchor='center'):
+    !!! warning "This layer includes no activation/norm/dropout"
+    """
+
+    def __init__(
+        self,
+        ndim: int,
+        inp_channels: int,
+        out_channels: Optional[int] = None,
+        size: OneOrSeveral[int] = 2,
+    ):
         """
-
         Parameters
         ----------
-        factor : int, Downsampling factor
-        anchor : {'center', 'edge'}
-            Use the center or the edges of the corner voxels as anchors
-
+        ndim : int
+            Number of spatial dimensions
+        inp_channels : int
+            Number of input channels
+        out_channels : int, ddefault=`inp_channels`
+            Number of output channels
+        size : [list of] int
+            Downsampling size
         """
+        out_channels = out_channels or inp_channels
         super().__init__()
-        self.factor = factor
-        self.anchor = anchor
+        Conv = getattr(nn, f'ConvTranspose{ndim}d')
+        self.conv = Conv(
+            in_channels=inp_channels,
+            out_channels=out_channels,
+            stride=size,
+            kernel_size=size,
+            padding=0,
+        )
 
-    def forward(self, image, shape=None):
+    def __str__(self) -> str:
+        return self.conv.__str__()
+
+    def __repr__(self) -> str:
+        return self.conv.__repr__()
+
+    def forward(self, inp):
         """
-
         Parameters
         ----------
-        image : (B, D, *shape) tensor
-        shape : list[int], optional
+        inp : (B, inp_channels, *inp_spatial) tensor
+            Input tensor
 
         Returns
         -------
-        image : (B, D, *shape) tensor
-
+        out : (B, out_channels, *out_spatial) tensor
+            Output downsampled tensor
         """
-        factor = None if shape else self.factor
-        return warps.downsample(image, factor, shape, self.anchor)
+        return self.conv(inp)
 
 
-class UpsampleConvLike(nn.Module):
-    """Upsample an image the same way a transposed convolution would"""
+class DownPool(nn.Sequential):
+    """
+    Downsampling using max-pooling + channel expansion
 
-    def __init__(self, kernel_size, stride=2, padding=0):
+    !!! warning "This layer includes no activation/norm/dropout"
+
+    ```
+    Cinp -[maxpool ÷2]-> Cinp -[conv 1x1x1]-> -> Cout
+    ```
+    """
+
+    def __init__(
+        self,
+        ndim: int,
+        inp_channels: int,
+        out_channels: Optional[int] = None,
+        size: OneOrSeveral[int] = 2,
+        return_indices=False,
+    ):
         """
-
         Parameters
         ----------
-        kernel_size : [list of] int
-        stride : [list of] int
-        padding : [list of] int
-
+        ndim : int
+            Number of spatial dimensions
+        inp_channels : int
+            Number of input channels
+        out_channels : int
+            Number of output channels
+        size : [list of] int
+            Kernel size
+        return_indices : bool
+            Return indices on top of pooled features
         """
         super().__init__()
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
+        MaxPool = getattr(nn, f'MaxPool{ndim}d')
+        Conv = getattr(nn, f'Conv{ndim}d')
+        out_channels = out_channels or inp_channels
+        layers = [MaxPool(
+            kernel_size=size,
+            stride=size,
+            return_indices=return_indices,
+        )]
+        if out_channels != inp_channels:
+            layers += [Conv(
+                inp_channels,
+                out_channels,
+                kernel_size=1,
+            )]
+        else:
+            layers += [DoNothing()]
+        super().__init__(*layers)
 
-    def forward(self, flow, shape=None):
+    @property
+    def return_indices(self):
+        return self[0].return_indices
+
+    def forward(self, x):
         """
-
         Parameters
         ----------
-        flow : (B, D, *shape) tensor
-        shape : list[int], optional
+        inp : (B, inp_channels, *inp_spatial) tensor
+            Input tensor
 
         Returns
         -------
-        flow : (B, D, *shape) tensor
-
+        out : (B, out_channels, *out_spatial) tensor
+            Output downsampled tensor
+        indices : (B, out_channels, *out_spatial) tensor[long]
+            Argmax of the maxpooling operation.
+            Only returned if `return_indices=True`
         """
-        return warps.upsample_convlike(
-            flow,  self.kernel_size, self.stride, self.padding, shape)
+        if self[0].return_indices:
+            pool, conv = self
+            x, ind = pool(x)
+            x = conv(x)
+            return x, ind
+        else:
+            return super().forward(x)
 
 
-class DownsampleConvLike(nn.Module):
-    """Downsample an image the same way a strided convolution would"""
+class UpPool(nn.Sequential):
+    r"""
+    Downsampling using max-pooling + channel expansion
 
-    def __init__(self, kernel_size, stride=2, padding=0):
+    !!! warning "This layer includes no activation/norm/dropout"
+
+    ```
+    Indices ----------------------------\
+                                        |
+                                        v
+    Cinp -[conv 1x1x1]-> Cout -> -[maxunpool x2]-> Cout
+    ```
+    """
+
+    def __init__(
+        self,
+        ndim: int,
+        inp_channels: int,
+        out_channels: Optional[int] = None,
+        size: OneOrSeveral[int] = 2,
+    ):
         """
-
         Parameters
         ----------
-        kernel_size : [list of] int
-        stride : [list of] int
-        padding : [list of] int
-
+        ndim : int
+            Number of spatial dimensions
+        inp_channels : int
+            Number of input channels
+        out_channels : int
+            Number of output channels
+        size : [list of] int
+            Kernel size
         """
         super().__init__()
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
+        MaxUnpool = getattr(nn, f'MaxUnpool{ndim}d')
+        Conv = getattr(nn, f'Conv{ndim}d')
+        out_channels = out_channels or inp_channels
+        layers = []
+        if out_channels != inp_channels:
+            layers += [Conv(
+                inp_channels,
+                out_channels,
+                kernel_size=1,
+            )]
+        else:
+            layers += [DoNothing()]
+        layers += [MaxUnpool(
+            kernel_size=size,
+            stride=size,
+        )]
+        super().__init__(*layers)
 
-    def forward(self, flow):
+    def forward(self, inp: Tensor, *, indices: Tensor) -> Tensor:
         """
-
         Parameters
         ----------
-        flow : (B, D, *shape) tensor
+        inp : (B, inp_channels, *inp_spatial) tensor
+            Input tensor
+        indices : (B, out_channels, *inp_spatial) tensor[long]
+            Indices returned by `DownPool` or `MaxPool{ndim}d`
 
         Returns
         -------
-        flow : (B, D, *shape) tensor
-
+        out : (B, out_channels, *out_spatial) tensor
+            Output upsampled tensor
         """
-        return warps.downsample_convlike(
-            flow, self.kernel_size, self.stride, self.padding)
+        conv, unpool = self
+        out = conv(inp)
+        out = unpool(out, indices)
+        return out
+
+
+class DownInterpol(nn.Sequential):
+    """
+    Downsampling using spline interpolation + channel expansion
+
+    !!! warning "This layer includes no activation/norm/dropout"
+
+    ```
+    Cinp -[interpol ÷2]-> Cinp -[conv 1x1x1]-> -> Cout
+    ```
+    """
+
+    def __init__(
+        self,
+        ndim: int,
+        inp_channels: int,
+        out_channels: Optional[int] = None,
+        size: OneOrSeveral[int] = 2,
+        interpolation: InterpolationType = 'linear',
+        bound: BoundType = 'zero',
+        prefilter: bool = True,
+    ):
+        """
+        Parameters
+        ----------
+        ndim : int
+            Number of spatial dimensions
+        inp_channels : int
+            Number of input channels
+        out_channels : int
+            Number of output channels
+        size : [list of] int
+            Downsampling factor size
+        interpolation : [list of] InterpolationType
+            Interpolation order.
+        bound : [list of] BoundType
+            Boundary conditions.
+        prefilter : bool
+            Apply spline pre-filter (= interpolates the input)
+        """
+        super().__init__()
+        Conv = getattr(nn, f'Conv{ndim}d')
+        out_channels = out_channels or inp_channels
+        factor = list(map(lambda x: 1/x, ensure_list(size)))
+        layers = [Resize(
+            factor=factor,
+            interpolation=interpolation,
+            bound=bound,
+            prefilter=prefilter,
+        )]
+        if out_channels != inp_channels:
+            layers += [Conv(
+                inp_channels,
+                out_channels,
+                kernel_size=1,
+            )]
+        super().__init__(*layers)
+
+
+class UpInterpol(nn.Sequential):
+    """
+    Upsampling using spline interpolation + channel expansion
+
+    !!! warning "This layer includes no activation/norm/dropout"
+
+    ```
+    Cinp -[conv 1x1x1]-> Cout -> -[interpol x2]-> Cout
+    ```
+    """
+
+    def __init__(
+        self,
+        ndim: int,
+        inp_channels: int,
+        out_channels: Optional[int] = None,
+        size: OneOrSeveral[int] = 2,
+        interpolation: InterpolationType = 'linear',
+        bound: BoundType = 'zero',
+        prefilter: bool = True,
+    ):
+        """
+        Parameters
+        ----------
+        ndim : int
+            Number of spatial dimensions
+        inp_channels : int
+            Number of input channels
+        out_channels : int
+            Number of output channels
+        size : [list of] int
+            Downsampling factor size
+        interpolation : [list of] InterpolationType
+            Interpolation order.
+        bound : [list of] BoundType
+            Boundary conditions.
+        prefilter : bool
+            Apply spline pre-filter (= interpolates the input)
+        """
+        super().__init__()
+        Conv = getattr(nn, f'Conv{ndim}d')
+        out_channels = out_channels or inp_channels
+        layers = []
+        if out_channels != inp_channels:
+            layers += [Conv(
+                inp_channels,
+                out_channels,
+                kernel_size=1,
+            )]
+        else:
+            layers += [DoNothing()]
+        layers += [Resize(
+            factor=size,
+            interpolation=interpolation,
+            bound=bound,
+            prefilter=prefilter,
+        )]
+        super().__init__(*layers)

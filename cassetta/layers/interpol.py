@@ -4,7 +4,8 @@ from interpol import (
     grid_pull, grid_push, resize, restrict, flowmom, flow_upsample2,
     identity_grid, add_identity_grid, spline_coeff_nd,
 )
-from ..core.utils import ensure_list
+from cassetta.core.utils import ensure_list
+from cassetta.core.typing import InterpolationType, BoundType
 
 
 class GridPull(nn.Module):
@@ -13,25 +14,18 @@ class GridPull(nn.Module):
     """
 
     def __init__(
-            self,
-            interpolation='linear',
-            bound='zero',
-            extrapolate=False,
-            prefilter=False
+        self,
+        interpolation: InterpolationType = 'linear',
+        bound: BoundType = 'zero',
+        extrapolate: bool = False,
+        prefilter: bool = False
     ):
         """
-
-        Notes
-        -----
-        {interpolation}
-
-        {bound}
-
         Parameters
         ----------
-        interpolation : int or sequence[int]
+        interpolation : [list of] InterpolationType
             Interpolation order.
-        bound : BoundType or sequence[BoundType]
+        bound : [list of] BoundType
             Boundary conditions.
         extrapolate : bool or int
             Extrapolate out-of-bound data.
@@ -126,12 +120,6 @@ class GridPush(nn.Module):
             prefilter=False
     ):
         """
-
-        Notes
-        -----
-        {interpolation}
-
-        {bound}
 
         Parameters
         ----------
@@ -229,9 +217,6 @@ class Resize(nn.Module):
         """
         Notes
         -----
-        {interpolation}
-
-        {bound}
 
         * A least one of `factor` and `shape` must be specified
         * If `anchor in ('center', 'edge')`, exactly one of `factor`
@@ -258,8 +243,8 @@ class Resize(nn.Module):
         factor : float or list[float], optional
             Resizing factor
 
-            * > 1 : larger image <-> smaller voxels
-            * < 1 : smaller image <-> larger voxels
+            * `> 1` : larger image <-> smaller voxels
+            * `< 1` : smaller image <-> larger voxels
         shape : (ndim,) list[int], optional
             Output shape
         anchor : {'center', 'edge', 'first', 'last'} or list
@@ -343,9 +328,6 @@ class Restrict(nn.Module):
         """
         Notes
         -----
-        {interpolation}
-
-        {bound}
 
         * A least one of `factor` and `shape` must be specified
         * If `anchor in ('center', 'edge')`, exactly one of `factor`
@@ -372,8 +354,8 @@ class Restrict(nn.Module):
         factor : float or list[float], optional
             Resizing factor
 
-            * > 1 : larger image <-> smaller voxels
-            * < 1 : smaller image <-> larger voxels
+            * `> 1` : larger image <-> smaller voxels
+            * `< 1` : smaller image <-> larger voxels
         shape : (ndim,) list[int], optional
             Output shape
         anchor : {'center', 'edge', 'first', 'last'} or list
@@ -509,12 +491,6 @@ class ValueToCoeff(nn.Module):
             bound='zero',
     ):
         """
-        Notes
-        -----
-        {interpolation}
-
-        {bound}
-
         Parameters
         ----------
         interpolation : int or sequence[int]
@@ -558,12 +534,6 @@ class CoeffToValue(nn.Module):
             bound='zero',
     ):
         """
-        Notes
-        -----
-        {interpolation}
-
-        {bound}
-
         Parameters
         ----------
         interpolation : int or sequence[int]
@@ -613,13 +583,6 @@ class FlowExp(nn.Module):
             coeff=False,
     ):
         """
-
-        Notes
-        -----
-        {interpolation}
-
-        {bound}
-
         Parameters
         ----------
         nsteps : int
