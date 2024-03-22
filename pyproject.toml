@@ -1,45 +1,6 @@
 [build-system]
 requires = [
   "setuptools>=61.0",
+  "wheel",
   "versioneer[toml]==0.29",
 ]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "cassetta"
-authors = [
-  { name="Yael Balbastre", email="yael.balbastre@gmail.com" },
-]
-description = "A PyTorch toolbox"
-readme = "README.md"
-requires-python = ">=3.8"
-classifiers = [
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Scientific/Engineering :: Medical Science Apps.",
-]
-dynamic = ["version"]
-license = {file = "LICENSE"}
-dependencies = [
-    "torch>=2",
-    "torch-bounds",
-    "torch-interpol",
-]
-
-[project.urls]
-Homepage = "https://github.com/balbasty/cassetta"
-Issues = "https://github.com/balbasty/cassetta/issues"
-
-[tool.setuptools]
-packages = ["cassetta"]
-
-[tool.versioneer]
-VCS = "git"
-style = "pep440"
-versionfile_source = "cassetta/_version.py"
-versionfile_build = "cassetta/_version.py"
-tag_prefix = ""
-parentdir_prefix = ""
