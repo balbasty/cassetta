@@ -92,10 +92,6 @@ class UNet(nn.Module):
         ----------
         ndim : int
             Number of spatial dimensions
-        inp_channels : int
-            Number of input channels
-        out_channels : int
-            Number of output chanels
         nb_features : [list of] int
             Number of features at the finest level.
             If a list, number of features at each level of the encoder.
