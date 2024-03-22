@@ -1,6 +1,4 @@
 r"""
-# meshgrid
-
 ## Eager vs TorchScript
 
 The signature of `torch.meshgrid` differs between eager and torchscript modes.
@@ -89,28 +87,94 @@ _help_xy = _help_intro + _help_warnxy + _help_prm
 
 TensorList = List[torch.Tensor]
 
+
+@torch.jit.script
+def meshgrid_list_ij(tensors: TensorList) -> TensorList:
+    r"""
+    Creates grids of coordinates specified by the 1D inputs in `tensors`.
+
+    This is helpful when you want to visualize data over some
+    range of inputs.
+
+    Given $N$ 1D tensors $T_0, \dots, T_{N-1}$ as inputs with
+    corresponding sizes $S_0, \dots, S_{N-1}$, this creates $N$
+    N-dimensional tensors $G_0, \dots, G_{N-1}$, each with shape
+    $(S_0, \dots, S_{N-1})$ where the output $G_i$ is constructed
+    by expanding $T_i$ to the result shape.
+
+    !!! note
+        0D inputs are treated equivalently to 1D inputs of a
+        single element.
+
+    Parameters
+    ----------
+    tensors : list[tensor]
+        list of scalars or 1 dimensional tensors. Scalars will be
+        treated as tensors of size $(1,)$ automatically
+
+    Returns
+    -------
+    seq : list[tensor]
+        list of expanded tensors
+    """
+    return list(torch.meshgrid(tensors, indexing='ij'))
+
+
+@torch.jit.script
+def meshgrid_list_xy(tensors: TensorList) -> TensorList:
+    r"""
+    Creates grids of coordinates specified by the 1D inputs in `tensors`.
+
+    This is helpful when you want to visualize data over some
+    range of inputs.
+
+    Given $N$ 1D tensors $T_0, \dots, T_{N-1}$ as inputs with
+    corresponding sizes $S_0, \dots, S_{N-1}$, this creates $N$
+    N-dimensional tensors $G_0, \dots, G_{N-1}$, each with shape
+    $(S_0, \dots, S_{N-1})$ where the output $G_i$ is constructed
+    by expanding $T_i$ to the result shape.
+
+    !!! note
+        0D inputs are treated equivalently to 1D inputs of a
+        single element.
+
+    !!! warning
+        In mode `xy`, the first dimension of the output corresponds to the
+        cardinality of the second input and the second dimension of the output
+        corresponds to the cardinality of the first input.
+
+    Parameters
+    ----------
+    tensors : list[tensor]
+        list of scalars or 1 dimensional tensors. Scalars will be
+        treated as tensors of size $(1,)$ automatically
+
+    Returns
+    -------
+    seq : list[tensor]
+        list of expanded tensors
+    """
+    return list(torch.meshgrid(tensors, indexing='xy'))
+
+
 if not int(os.environ.get('PYTORCH_JIT', '1')):
     # JIT deactivated -> torch.meshgrid takes an unpacked list of tensors
 
+    # We can't redefine a function with the same name otherwise mkdocs
+    # stops showing it. So we use an alias instead.
+
+    _help_ij = meshgrid_list_ij.__doc__
+    _help_xy = meshgrid_list_xy.__doc__
+
     @torch.jit.script
-    def meshgrid_list_ij(tensors: TensorList) -> TensorList:
+    def _meshgrid_list_ij(tensors: TensorList) -> TensorList:
         return list(torch.meshgrid(*tensors, indexing='ij'))
 
     @torch.jit.script
-    def meshgrid_list_xy(tensors: TensorList) -> TensorList:
+    def _meshgrid_list_xy(tensors: TensorList) -> TensorList:
         return list(torch.meshgrid(*tensors, indexing='xy'))
 
-else:
-    # JIT activated -> torch.meshgrid takes a packed list of tensors
-
-    @torch.jit.script
-    def meshgrid_list_ij(tensors: TensorList) -> TensorList:
-        return list(torch.meshgrid(tensors, indexing='ij'))
-
-    @torch.jit.script
-    def meshgrid_list_xy(tensors: TensorList) -> TensorList:
-        return list(torch.meshgrid(tensors, indexing='xy'))
-
-
-meshgrid_list_ij.__doc__ = _help_ij
-meshgrid_list_xy.__doc__ = _help_xy
+    meshgrid_list_ij = _meshgrid_list_ij
+    meshgrid_list_xy = _meshgrid_list_xy
+    meshgrid_list_ij.__doc__ = _help_ij
+    meshgrid_list_xy.__doc__ = _help_xy

@@ -1,5 +1,13 @@
+__all__ = [
+    'DiceLoss',
+    'CatLoss',
+    'CatMSELoss',
+    'LogitMSELoss',
+]
 import torch
 import inspect
+from torch import nn
+from cassetta.core.utils import make_vector
 from .base import Loss
 
 
@@ -182,7 +190,7 @@ class DiceLoss(Loss):
         nvox = pred.shape[2:].numel()
 
         eps = self.eps or 1/nb_classes
-        eps = utils.make_vector(eps, nb_classes, **backend)
+        eps = make_vector(eps, nb_classes, **backend)
         eps = eps * nvox
 
         # prepare weights
@@ -190,7 +198,7 @@ class DiceLoss(Loss):
         if not torch.is_tensor(weighted) and not weighted:
             weighted = False
         if not isinstance(weighted, bool):
-            weighted = utils.make_vector(weighted, nb_classes, **backend)
+            weighted = make_vector(weighted, nb_classes, **backend)
 
         if ref.dtype.is_floating_point:
             return self.forward_onehot(pred, ref, mask, weighted, eps)
@@ -337,7 +345,7 @@ class CatLoss(Loss):
         if not torch.is_tensor(weighted) and not weighted:
             weighted = False
         if not isinstance(weighted, bool):
-            weighted = utils.make_vector(weighted, nb_classes, **backend)
+            weighted = make_vector(weighted, nb_classes, **backend)
 
         if ref.dtype.is_floating_point:
             return self.forward_onehot(pred, ref, mask, weighted)
@@ -476,7 +484,7 @@ class CatMSELoss(Loss):
         if not torch.is_tensor(weighted) and not weighted:
             weighted = False
         if not isinstance(weighted, bool):
-            weighted = utils.make_vector(weighted, nb_classes, **backend)
+            weighted = make_vector(weighted, nb_classes, **backend)
 
         if ref.dtype.is_floating_point:
             return self.forward_onehot(pred, ref, mask, weighted)
@@ -485,7 +493,9 @@ class CatMSELoss(Loss):
 
 
 class LogitMSELoss(Loss):
-    """Mean Squared Error between logits and target positive/negative values."""
+    """
+    Mean Squared Error between logits and target positive/negative values.
+    """
 
     def __init__(self, target=5, weighted=False, labels=None, reduction='mean',
                  activation=None):
@@ -627,7 +637,7 @@ class LogitMSELoss(Loss):
         if not torch.is_tensor(weighted) and not weighted:
             weighted = False
         if not isinstance(weighted, bool):
-            weighted = utils.make_vector(weighted, nb_classes, **backend)
+            weighted = make_vector(weighted, nb_classes, **backend)
 
         if ref.dtype.is_floating_point:
             return self.forward_onehot(pred, ref, mask, weighted)

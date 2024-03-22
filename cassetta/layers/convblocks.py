@@ -425,6 +425,10 @@ class DownGroup(nn.Sequential):
     def __init__(self, module_down, module_block):
         super().__init__(module_down, module_block)
 
+    @property
+    def return_indices(self):
+        return getattr(self[0], 'return_indices', False)
+
     def forward(self, inp: Tensor) -> OneOrSeveral[Tensor]:
         """
         Parameters

@@ -1,15 +1,13 @@
 r"""
-# Overview
-
 +-------------------------------------------------------------------+-------------------------------------------------------+
-|**Indexing**                                                                                                               |
+|[**Indexing**][cassetta.functional.jit.indexing]                                                                           |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`ind2sub`][cassetta.functional.jit.ind2sub]                      | Convert linear indices into sub indices (i, j, k).    |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`sub2ind`][cassetta.functional.jit.sub2ind],                     | Convert sub indices (i, j, k) into linear indices.    |
 | [`sub2ind_list`][cassetta.functional.jit.sub2ind_list]            |                                                       |
 +-------------------------------------------------------------------+-------------------------------------------------------+
-|**Math**                                                                                                                   |
+| [**Math**][cassetta.functional.jit.math]                                                                                  |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`square`][cassetta.functional.jit.square],                       | `x**2`                                                |
 | [`square_`][cassetta.functional.jit.square_]                      |                                                       |
@@ -35,13 +33,13 @@ r"""
 | [`trunc_div`][cassetta.functional.jit.trunc_div],                 | `trunc(x / y)`                                        |
 | [`trunc_div_int`][cassetta.functional.jit.trunc_div_int]          |                                                       |
 +-------------------------------------------------------------------+-------------------------------------------------------+
-|**Meshgrid**                                                                                                               |
+| [**Meshgrid**][cassetta.functional.jit.meshgrid]                                                                          |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`meshgrid_list_ij`][cassetta.functional.jit.meshgrid_list_ij]    | Meshgrid with `indexing="ij"`                         |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`meshgrid_list_xy`][cassetta.functional.jit.meshgrid_list_xy]    | Meshgrid with `indexing="xy"`                         |
 +-------------------------------------------------------------------+-------------------------------------------------------+
-|**Python objects**                                                                                                         |
+| [**Python objects**][cassetta.functional.jit.python]                                                                      |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`pad_list_int`][cassetta.functional.jit.pad_list_int]            | Pad a list                                            |
 | [`pad_list_float`][cassetta.functional.jit.pad_list_float]        |                                                       |
@@ -59,7 +57,7 @@ r"""
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`cumprod_list_int`][cassetta.functional.jit.cumprod_list_int]    | Cumulative product                                    |
 +-------------------------------------------------------------------+-------------------------------------------------------+
-|**Tensors**                                                                                                                |
+| [**Tensors**][cassetta.functional.jit.tensors]                                                                            |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 | [`prod_list_tensor`][cassetta.functional.jit.prod_list_tensor]    | `prod(list[tensor])`                                  |
 +-------------------------------------------------------------------+-------------------------------------------------------+

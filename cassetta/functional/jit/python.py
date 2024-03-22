@@ -16,6 +16,25 @@ from typing import List
 
 @torch.jit.script
 def pad_list_int(x: List[int], length: int) -> List[int]:
+    """
+    Pad/crop a list of int until it reaches a target length.
+
+    !!! note
+        If padding, the last element gets replicated.
+
+    Parameters
+    ----------
+    x : list[int]
+        List of int
+    length : int
+        Target length
+
+    Returns
+    -------
+    x : (length,) list[int]
+        List of length `length`.
+
+    """
     if len(x) < length:
         x = x + x[-1:] * (length - len(x))
     if len(x) > length:
@@ -25,6 +44,9 @@ def pad_list_int(x: List[int], length: int) -> List[int]:
 
 @torch.jit.script
 def pad_list_float(x: List[float], dim: int) -> List[float]:
+    """
+    See [`pad_list_int`][cassetta.functional.jit.pad_list_int].
+    """
     if len(x) < dim:
         x = x + x[-1:] * (dim - len(x))
     if len(x) > dim:
@@ -34,6 +56,9 @@ def pad_list_float(x: List[float], dim: int) -> List[float]:
 
 @torch.jit.script
 def pad_list_str(x: List[str], dim: int) -> List[str]:
+    """
+    See [`pad_list_int`][cassetta.functional.jit.pad_list_int].
+    """
     if len(x) < dim:
         x = x + x[-1:] * (dim - len(x))
     if len(x) > dim:

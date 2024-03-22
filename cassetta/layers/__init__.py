@@ -1,6 +1,8 @@
 """
-This module implements a variety of very simple `nn.Module` that can be
-though of as "layers" in a network.
+## Overview
+
+Layers are relatively simple modules or sequences of modules. They
+should be used as basic blocks for building [**backbones**](../backbones).
 
 Modules
 -------

@@ -1,23 +1,73 @@
 from torch import nn
-from functools import partial
-from typing import Optional
+from typing import Optional, Union, Literal
 from cassetta.core.typing import (
     OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType)
-from ..layers import ConvGroup, UpConvGroup, DownConvGroup
+from .fcn import ConvEncoder, ConvDecoder
 
 
 class UNet(nn.Module):
     """A UNet
 
-    ```
-    C -[conv xN]-> F ----------------------(cat)----------------------> 2*F -[conv xN]-> Cout
-                   |                                                     ^
-                   v                                                     |
-                  F*m -[conv xN]-> F*m  ---(cat)---> 2*F*m -[conv xN]-> F*m
-                                    |                  ^
-                                    v                  |
-                                  F*m*m -[conv xN]-> F*m*m
-    ```
+    !!! tip "Diagram"
+        === "`skip=True`"
+            ```mermaid
+            flowchart LR
+                II0["`[F0, W]`"]            ---CI0("`ConvGroup`"):::w-->
+                IO0["`[F0, W]`"]            ---D1("`Down`"):::w-->
+                II1["`[F1, W//2]`"]         ---CI1("`ConvGroup`"):::w-->
+                IO1["`[F1, W//2]`"]         ---D2("`Down`"):::w-->
+                II2["`[F2, W//4]`"]         ---CI2("`ConvGroup`"):::w-->
+                OO2["`[F2, W//4]`"]:::o     ---U2("`Up`"):::w-->
+                OI1["`[F1, W//2]`"]         ---Z1(("c")):::d-->
+                OZ1["`[F1*2, W//2]`"]       ---CO1("`ConvGroup`"):::w-->
+                OO1["`[F1, W//2]`"]:::o     ---U1("`Up`"):::w-->
+                OI0["`[F0, W]`"]            ---Z0(("c")):::d-->
+                OZ0["`[F0*2, W]`"]          ---CO0("`ConvGroup`"):::w-->
+                OO0["`[F0, W]`"]:::o
+                IO0 --- Z0
+                IO1 --- Z1
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef o fill:mistyrose,stroke:lightpink;
+            ```
+        === "`skip='+'`"
+            ```mermaid
+            flowchart LR
+                II0["`[F0, W]`"]            ---CI0("`ConvGroup`"):::w-->
+                IO0["`[F0, W]`"]            ---D1("`Down`"):::w-->
+                II1["`[F1, W//2]`"]         ---CI1("`ConvGroup`"):::w-->
+                IO1["`[F1, W//2]`"]         ---D2("`Down`"):::w-->
+                II2["`[F2, W//4]`"]         ---CI2("`ConvGroup`"):::w-->
+                OO2["`[F2, W//4]`"]:::o     ---U2("`Up`"):::w-->
+                OI1["`[F1, W//2]`"]         ---Z1(("+")):::d-->
+                OZ1["`[F1, W//2]`"]         ---CO1("`ConvGroup`"):::w-->
+                OO1["`[F1, W//2]`"]:::o     ---U1("`Up`"):::w-->
+                OI0["`[F0, W]`"]            ---Z0(("+")):::d-->
+                OZ0["`[F0, W]`"]            ---CO0("`ConvGroup`"):::w-->
+                OO0["`[F0, W]`"]:::o
+                IO0 --- Z0
+                IO1 --- Z1
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef o fill:mistyrose,stroke:lightpink;
+            ```
+        === "`skip=False`"
+            ```mermaid
+            flowchart LR
+                II0["`[F0, W]`"]            ---CI0("`ConvGroup`"):::w-->
+                IO0["`[F0, W]`"]            ---D1("`Down`"):::w-->
+                II1["`[F1, W//2]`"]         ---CI1("`ConvGroup`"):::w-->
+                IO1["`[F1, W//2]`"]         ---D2("`Down`"):::w-->
+                II2["`[F2, W//4]`"]         ---CI2("`ConvGroup`"):::w-->
+                OO2["`[F2, W//4]`"]:::o     ---U2("`Up`"):::w-->
+                OI1["`[F1, W//2]`"]         ---CO1("`ConvGroup`"):::w-->
+                OO1["`[F1, W//2]`"]:::o     ---U1("`Up`"):::w-->
+                OI0["`[F0, W]`"]            ---CO0("`ConvGroup`"):::w-->
+                OO0["`[F0, W]`"]:::o
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef o fill:mistyrose,stroke:lightpink;
+            ```
     """  # noqa: E501
 
     def __init__(
@@ -34,6 +84,8 @@ class UNet(nn.Module):
         attention: AttentionType = None,
         order: str = 'cndax',
         pool_mode: str = 'interpolate',
+        unpool_mode: Optional[str] = None,
+        skip: Union[bool, Literal['+']] = True,
     ):
         """
         Parameters
@@ -65,49 +117,30 @@ class UNet(nn.Module):
         attention : AttentionType
             Attention
         pool_mode : {'interpolate', 'conv', 'pool'}
-            Method used to go down/up one level.
-            If `interpolate`, use `torch.nn.functional.interpolate`.
-            If `conv`, use strided convolutions on the way down, and
-            transposed convolutions on the way up.
-        """
-        make_inp = partial(
-            ConvGroup,
-            ndim,
-            activation=activation,
-            norm=norm,
-            dropout=dropout,
-            attention=attention,
-            order=order,
-            nb_conv=nb_conv_per_level,
-        )
-        make_down = partial(
-            DownConvGroup,
-            ndim,
-            activation=activation,
-            norm=norm,
-            dropout=dropout,
-            attention=attention,
-            order=order,
-            nb_conv=nb_conv_per_level,
-            mode=pool_mode,
-        )
-        make_up = partial(
-            UpConvGroup,
-            ndim,
-            activation=activation,
-            norm=norm,
-            dropout=dropout,
-            attention=attention,
-            order=order,
-            nb_conv=nb_conv_per_level,
-            mode=pool_mode,
-        )
+            Method used to go down one level.
 
+            - If `"interpolate"`, use linear interpolation.
+            - If `"conv"`, use strided convolutions.
+            - If `"pool"`, use max pooling.
+        unpool_mode : {'interpolate', 'conv'}, default=`pool_mode`
+            Method used to go up one level.
+
+            - If `"interpolate"`, use linear interpolation.
+            - If `"conv"`, use transposed convolutions.
+            - `"pool"` (i.e., unpooling) is not supported right now.
+        skip : bool or {'+'}
+            Type of skip connections:
+
+            - `False`: no skip connections
+            - `True`: concatenate skip connections
+            - `'+'`: add skip connections
+        """
         # number of features per level
         nb_levels_decoder = nb_levels_decoder or nb_levels
         if isinstance(nb_features, int):
             enc_features = [
-                nb_features * mul_features**level for level in range(nb_levels)
+                nb_features * mul_features**level
+                for level in range(nb_levels)
             ]
         else:
             enc_features = list(nb_features)
@@ -123,38 +156,59 @@ class UNet(nn.Module):
         ]
         dec_features = dec_features[:nb_levels_decoder]
 
-        downpath = [make_inp(enc_features[0], enc_features[0])]
-        for i in range(1, nb_levels):
-            downpath += [make_down(enc_features[i-1], enc_features[i])]
-        uppath = []
-        for i in range(nb_levels_decoder-1):
-            uppath += [make_up(dec_features[i], dec_features[i+1])]
+        unpool_mode = unpool_mode or pool_mode
+        if unpool_mode == 'pool':
+            unpool_mode = 'interpol'
 
+        # build encoder/decoder
         super().__init__()
-        self.downpath = nn.Sequential(*downpath)
-        self.uppath = nn.Sequential(*uppath)
+        self.encoder = ConvEncoder(
+            ndim,
+            nb_features=enc_features,
+            mul_features=1,
+            nb_levels=nb_levels,
+            nb_conv_per_level=nb_conv_per_level,
+            activation=activation,
+            norm=norm,
+            dropout=dropout,
+            attention=attention,
+            order=order,
+            pool_mode=pool_mode,
+        )
+        self.decoder = ConvDecoder(
+            ndim,
+            nb_features=dec_features,
+            nb_levels=nb_levels_decoder,
+            nb_conv_per_level=nb_conv_per_level,
+            skip=(skip and skip != '+'),
+            activation=activation,
+            norm=norm,
+            dropout=dropout,
+            attention=attention,
+            order=order,
+            unpool_mode=unpool_mode,
+        )
+        self.skip = skip
 
-    def forward(self, inp, return_pyramid=False):
+    def forward(self, inp, *, return_all=False):
         """
         Parameters
         ----------
-        inp : (B, in_channels, X, Y)
+        inp : (B, in_channels, *inp_size)
             Input tensor
+        return_all : bool
+            Return all intermediate output tensors (at each level).
 
         Returns
         -------
-        out : (B, out_channels, X, Y)
-            Output tensor
+        out : [tuple of] (B, nb_features[-1], *out_size) tensor
+            Output tensor(s).
+            If `return_all`, return all intermediate tensors, from
+            coarsest to finest. Else, return the final tensor only.
         """
-        x, skips, pyramid = inp, [], []
-        for layer in self.downpath:
-            x = layer(x)
-            skips.append(x)
-        skips.pop(-1)  # no need to keep the corsest features
-        if return_pyramid:
-            pyramid += [x]
-        for layer in self.uppath:
-            x = layer(x, skips.pop(-1))
-            if return_pyramid:
-                pyramid += [x]
-        return tuple(pyramid) if return_pyramid else x
+        out = self.encoder(inp, return_all=bool(self.skip))
+        if self.skip:
+            out = list(reversed(out))
+        else:
+            out = [out]
+        return self.decoder(*out, return_all=return_all)

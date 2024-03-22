@@ -113,9 +113,6 @@ class ConvEncoder(nn.Sequential):
         ----------
         inp : (B, nb_features[0], *inp_size) tensor
             Input tensor
-
-        Keyword Parameters
-        ------------------
         return_all : bool
             Return all intermediate output tensors (at each level)
 
@@ -127,8 +124,8 @@ class ConvEncoder(nn.Sequential):
             finest to coarsest. Else, return the final tensor only.
         """
         if return_all:
-            all = []
             out = inp
+            all = []
             for layer in self:
                 out = layer(out)
                 all.append(out)
@@ -141,52 +138,51 @@ class ConvDecoder(nn.Sequential):
     """A fully convolutional decoder
 
     !!! tip "Diagram: pure decoder"
-        ```mermaid
-        flowchart LR
-            1["`[F0, W]`"]     ---2("Up"):::w-->
-            3["`[F1, W*2]`"]   ---4("ConvGroup"):::w-->
-            5["`[F1, W*2]`"]   ---6("Up"):::w-->
-            7["`[F2, W*4]`"]   ---8("ConvGroup"):::w-->
-            9["`[F2, W*4]`"]
-            classDef w fill:papayawhip,stroke:peachpuff;
-        ```
-
-    !!! tip "Diagram: skip connections with `skip!=0`"
-        ```mermaid
-        flowchart LR
-            S1["`[S1, W*2]`"]
-            S2["`[S2, W*2]`"]
-            1["`[F0, W]`"]        ---2("Up"):::w-->
-            3["`[F1, W*2]`"]      ---4(("c")):::d-->
-            5["`[F1+S1, W]`"]     ---6("ConvGroup"):::w-->
-            7["`[F1, W*2]`"]      ---8("Up"):::w-->
-            9["`[F2, W*4]`"]      ---10(("c")):::d-->
-            11["`[F2+S2, W*4]`"]  ---12("ConvGroup"):::w-->
-            13["`[F2, W*4]`"]
-            S1 --- 4
-            S2 --- 10
-            classDef w fill:papayawhip,stroke:peachpuff;
-            classDef d fill:lightcyan,stroke:lightblue;
-        ```
-
-    !!! tip "Diagram: skip connections with `skip=0`"
-        ```mermaid
-        flowchart LR
-            S1["`[F1, W*2]`"]
-            S2["`[F2, W*2]`"]
-            1["`[F0, W]`"]        ---2("Up"):::w-->
-            3["`[F1, W*2]`"]      ---4(("+")):::d-->
-            5["`[F1, W]`"]        ---6("ConvGroup"):::w-->
-            7["`[F1, W*2]`"]      ---8("Up"):::w-->
-            9["`[F2, W*4]`"]      ---10(("+")):::d-->
-            11["`[F2, W*4]`"]     ---12("ConvGroup"):::w-->
-            13["`[F2, W*4]`"]
-            S1 --- 4
-            S2 --- 10
-            classDef w fill:papayawhip,stroke:peachpuff;
-            classDef d fill:lightcyan,stroke:lightblue;
-        ```
-    """  # noqa: E501
+        === "No skip connections"
+            ```mermaid
+            flowchart LR
+                1["`[F0, W]`"]     ---2("Up"):::w-->
+                3["`[F1, W*2]`"]   ---4("ConvGroup"):::w-->
+                5["`[F1, W*2]`"]   ---6("Up"):::w-->
+                7["`[F2, W*4]`"]   ---8("ConvGroup"):::w-->
+                9["`[F2, W*4]`"]
+                classDef w fill:papayawhip,stroke:peachpuff;
+            ```
+        === "Concatenated skip connections (`skip!=0`)"
+            ```mermaid
+            flowchart LR
+                S1["`[S1, W*2]`"]
+                S2["`[S2, W*2]`"]
+                1["`[F0, W]`"]        ---2("Up"):::w-->
+                3["`[F1, W*2]`"]      ---4(("c")):::d-->
+                5["`[F1+S1, W]`"]     ---6("ConvGroup"):::w-->
+                7["`[F1, W*2]`"]      ---8("Up"):::w-->
+                9["`[F2, W*4]`"]      ---10(("c")):::d-->
+                11["`[F2+S2, W*4]`"]  ---12("ConvGroup"):::w-->
+                13["`[F2, W*4]`"]
+                S1 --- 4
+                S2 --- 10
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+            ```
+        === "Summed skip connections (`skip=0`)"
+            ```mermaid
+            flowchart LR
+                S1["`[F1, W*2]`"]
+                S2["`[F2, W*2]`"]
+                1["`[F0, W]`"]        ---2("Up"):::w-->
+                3["`[F1, W*2]`"]      ---4(("+")):::d-->
+                5["`[F1, W]`"]        ---6("ConvGroup"):::w-->
+                7["`[F1, W*2]`"]      ---8("Up"):::w-->
+                9["`[F2, W*4]`"]      ---10(("+")):::d-->
+                11["`[F2, W*4]`"]     ---12("ConvGroup"):::w-->
+                13["`[F2, W*4]`"]
+                S1 --- 4
+                S2 --- 10
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+            ```
+    """
 
     def __init__(
         self,
@@ -201,7 +197,7 @@ class ConvDecoder(nn.Sequential):
         dropout: DropoutType = None,
         attention: AttentionType = None,
         order: str = 'cndax',
-        pool_mode: str = 'interpolate',
+        unpool_mode: str = 'interpolate',
     ):
         """
         Parameters
@@ -235,8 +231,8 @@ class ConvDecoder(nn.Sequential):
             Channel dropout probability
         attention : AttentionType
             Attention
-        pool_mode : {'interpolate', 'conv', 'pool'}
-            Method used to go down one level.
+        unpool_mode : {'interpolate', 'conv'}
+            Method used to go up one level.
         """
         make_up = partial(
             UpConvGroup,
@@ -247,7 +243,7 @@ class ConvDecoder(nn.Sequential):
             attention=attention,
             order=order,
             nb_conv=nb_conv_per_level,
-            mode=pool_mode,
+            mode=unpool_mode,
         )
 
         # number of features per level
@@ -282,20 +278,15 @@ class ConvDecoder(nn.Sequential):
             )]
         super().__init__(*decoder)
 
-    def forward(self, *inp, return_all=False, indices=None):
+    def forward(self, *inp, return_all=False):
         """
         Parameters
         ----------
         *inp : (B, nb_features[n], *inp_size[n]) tensor
             Input tensor(s), eventually including skip connections.
             Ordered from coarsest to finest.
-
-        Keyword Parameters
-        ------------------
         return_all : bool
             Return all intermediate output tensors (at each level).
-        indices : list of (B, nb_features[n], *inp_size[n]) tensor[long]
-            Unpooling indices. Only useful if `pool_mode='pool'`.
 
         Returns
         -------
@@ -304,19 +295,17 @@ class ConvDecoder(nn.Sequential):
             If `return_all`, return all intermediate tensors, from
             coarsest to finest. Else, return the final tensor only.
         """
-        if not return_all and not indices:
+        if not return_all:
             return super().forward(inp)
 
         inp, *skips = inp
         skips = list(skips)
-        indices = list(indices or [])
         all = []
 
         out = inp
         for layer in self:
             args = [skips.pop(0)] if skips else []
-            kwargs = dict(indices=indices.pop(0)) if indices else {}
-            out = layer(out, *args, **kwargs)
+            out = layer(out, *args)
             if return_all:
                 all.append(out)
         return tuple(all) if return_all else out
