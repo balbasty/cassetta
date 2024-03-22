@@ -4,6 +4,7 @@ __all__ = [
     'Split',
     'DoNothing',
     'Hadamard',
+    'ModuleSum',
 ]
 import torch
 from torch import nn
@@ -138,3 +139,14 @@ class Hadamard(nn.Module):
             return Cat()(x + y, x - y)
         else:
             return x + y, x - y
+
+
+class ModuleSum(nn.ModuleList):
+    """
+    Apply modules in parallel and sum their outputs.
+
+    !!! warning "The output of all modules must have the same shape"
+    """
+
+    def forward(self, inp):
+        return sum([layer(inp) for layer in self])

@@ -1,3 +1,7 @@
+__all__ = [
+    'ConvEncoder',
+    'ConvDecoder',
+]
 from torch import nn
 from functools import partial
 from typing import Union
@@ -29,11 +33,14 @@ class ConvEncoder(nn.Sequential):
         mul_features: int = 2,
         nb_levels: int = 3,
         nb_conv_per_level: int = 2,
+        kernel_size: OneOrSeveral[int] = 3,
+        residual: bool = False,
         activation: ActivationType = 'ReLU',
         norm: NormType = None,
         dropout: DropoutType = None,
         attention: AttentionType = None,
         order: str = 'cndax',
+        pool_factor: OneOrSeveral[int] = 2,
         pool_mode: str = 'interpolate',
     ):
         """
@@ -51,6 +58,10 @@ class ConvEncoder(nn.Sequential):
             Number of levels in the encoder
         nb_conv_per_level : int
             Number of convolutional layers at each level.
+        kernel_size : [list of] int
+            Kernel size
+        residual : bool
+            Use residual connections between convolutional blocks
         activation : ActivationLike
             Type of activation
         norm : NormType
@@ -59,12 +70,18 @@ class ConvEncoder(nn.Sequential):
             Channel dropout probability
         attention : AttentionType
             Attention
+        order : str
+            Modules order (permutation of 'ncdax')
+        pool_factor : [list of] int
+            Downsampling factor (per dimension).
         pool_mode : {'interpolate', 'conv', 'pool'}
             Method used to go down one level.
         """
         make_inp = partial(
             ConvGroup,
             ndim,
+            kernel_size=kernel_size,
+            residual=residual,
             activation=activation,
             norm=norm,
             dropout=dropout,
@@ -75,6 +92,8 @@ class ConvEncoder(nn.Sequential):
         make_down = partial(
             DownConvGroup,
             ndim,
+            kernel_size=kernel_size,
+            residual=residual,
             activation=activation,
             norm=norm,
             dropout=dropout,
@@ -87,12 +106,13 @@ class ConvEncoder(nn.Sequential):
         # number of features per level
         if isinstance(nb_features, int):
             enc_features = [
-                nb_features * mul_features**level for level in range(nb_levels)
+                int(nb_features * mul_features**level)
+                for level in range(nb_levels)
             ]
         else:
             enc_features = list(nb_features)
             enc_features += [
-                enc_features[-1:] * mul_features**level
+                int(enc_features[-1:] * mul_features**level)
                 for level in range(nb_levels - len(enc_features))
             ]
             enc_features = enc_features[:nb_levels]
@@ -188,11 +208,14 @@ class ConvDecoder(nn.Sequential):
         nb_levels: int = 3,
         nb_conv_per_level: int = 2,
         skip: Union[bool, OneOrSeveral[int]] = False,
+        kernel_size: OneOrSeveral[int] = 3,
+        residual: bool = False,
         activation: ActivationType = 'ReLU',
         norm: NormType = None,
         dropout: DropoutType = None,
         attention: AttentionType = None,
         order: str = 'cndax',
+        unpool_factor: OneOrSeveral[int] = 2,
         unpool_mode: str = 'interpolate',
     ):
         """
@@ -215,6 +238,10 @@ class ConvDecoder(nn.Sequential):
             If 0 (or False) and skip tensors are provided, will try to
             add them instead of cat. If True, the number of skipped
             channels and the number of features are identical.
+        kernel_size : [list of] int
+            Kernel size
+        residual : bool
+            Use residual connections between convolutional blocks
         activation : ActivationLike
             Type of activation
         norm : NormType
@@ -223,12 +250,18 @@ class ConvDecoder(nn.Sequential):
             Channel dropout probability
         attention : AttentionType
             Attention
+        order : str
+            Modules order (permutation of 'ncdax')
+        unpool_factor : [list of] int
+            Upsampling factor (per dimension).
         unpool_mode : {'interpolate', 'conv'}
             Method used to go up one level.
         """
         make_up = partial(
             UpConvGroup,
             ndim,
+            kernel_size=kernel_size,
+            residual=residual,
             activation=activation,
             norm=norm,
             dropout=dropout,
@@ -241,13 +274,13 @@ class ConvDecoder(nn.Sequential):
         # number of features per level
         if isinstance(nb_features, int):
             dec_features = [
-                max(1, nb_features // div_features**level)
+                max(1, int(nb_features // div_features**level))
                 for level in range(nb_levels)
             ]
         else:
             dec_features = list(nb_features)
             dec_features += [
-                max(1, dec_features[-1:] // div_features**level)
+                max(1, int(dec_features[-1:] // div_features**level))
                 for level in range(nb_levels - len(dec_features))
             ]
             dec_features = dec_features[:nb_levels]

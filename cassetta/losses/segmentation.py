@@ -31,23 +31,21 @@ class DiceLoss(Loss):
     By default, each class is weighted identically.
     The `weighted` mode allows classes to be weighted by frequency.
 
-    References
-    ----------
-    ..  "V-Net: Fully convolutional neural networks for volumetric
-         medical image segmentation"
-        Milletari, Navab and Ahmadi
-        3DV (2016)
-        https://arxiv.org/abs/1606.04797
-    ..  "Generalised dice overlap as a deep learning loss function for
-         highly unbalanced segmentations"
-        Sudre, Li, Vercauteren, Ourselin and Cardoso
-        DLMIA (2017)
-        https://arxiv.org/abs/1707.03237
-    ..  "The Dice loss in the context of missing or empty labels:
-         introducing $\Phi$ and $\epsilon$"
-        Tilborghs, Bertels, Robben, Vandermeulen and Maes
-        MICCAI (2022)
-        https://arxiv.org/abs/2207.09521
+    !!! quote "References"
+        1.  Milletari, Navab & Ahmadi,
+            **"V-Net: Fully convolutional neural networks for volumetric
+            medical image segmentation."** _3DV_ (2016).
+            [arxiv:1606.04797](https://arxiv.org/abs/1606.04797)
+        2.  Sudre, Li, Vercauteren, Ourselin & Cardoso,
+            **"Generalised dice overlap as a deep learning loss function
+            for highly unbalanced segmentations."**
+            _DLMIA_ (2017).
+            [arxiv:1707.03237](https://arxiv.org/abs/1707.03237)
+        3.  Tilborghs, Bertels, Robben, Vandermeulen & Maes,
+            **"The Dice loss in the context of missing or empty labels:
+            introducing $\Phi$ and $\epsilon$."**
+            _MICCAI_ (2022).
+            [arxiv:2207.09521](https://arxiv.org/abs/2207.09521)
     """
 
     def __init__(self, square=True, weighted=False, labels=None,
@@ -209,12 +207,13 @@ class DiceLoss(Loss):
 class CatLoss(Loss):
     r"""Weighted categorical cross-entropy.
 
-    By default, each class is weighted *identically*.
-    /!\ This differs from the classical "categorical cross-entropy loss",
-    /!\ which corresponds to the true Categorical log-likelihood and where
-    /!\ classes are therefore weighted by frequency. The default behavior
-    /!\ of our loss is that of a "weighted categorical cross-entropy".
-    The `weighted` mode allows classes to be weighted by frequency.
+    !!! warning "By default, each class is weighted *identically*."
+        This differs from the classical "categorical cross-entropy loss",
+        which corresponds to the true Categorical log-likelihood and where
+        classes are therefore weighted by frequency. The default behavior
+        of our loss is that of a "weighted categorical cross-entropy".
+
+    !!! note "With `weighted=True`, classes are weighted by frequency."
     """
 
     def __init__(self, weighted=False, labels=None,

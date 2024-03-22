@@ -20,10 +20,14 @@ fcn
     Fully convolutional encoders and decoders
 unet
     U-Nets: autoencoder wirth skip connections
+atrous
+    Networks that use dilated convolutions
 """
 
-from . import unet  # noqa: F401
-from . import fcn   # noqa: F401
+from . import fcn       # noqa: F401
+from . import unet      # noqa: F401
+from . import atrous    # noqa: F401
 
-from .unet import *     # noqa: F401, F403
 from .fcn import *      # noqa: F401, F403
+from .unet import *     # noqa: F401, F403
+from .atrous import *   # noqa: F401, F403

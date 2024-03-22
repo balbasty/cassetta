@@ -85,27 +85,28 @@ class GlobalPool(nn.Module):
     """
     Global pooling across spatial dimensions
 
-    !!! tip "Diagram when `dim='spatial', keepdim=True`"
-        ```mermaid
-        flowchart LR
-            1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d--> 3["`[B, C, 1, 1]`"]
-            classDef d fill:lightcyan,stroke:lightblue;
-        ```
-
-    !!! tip "Diagram when `dim='spatial', keepdim=True`"
-        ```mermaid
-        flowchart LR
-            1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d--> 3["`[B, C]`"]
-            classDef d fill:lightcyan,stroke:lightblue;
-        ```
-
-    !!! tip "Diagram when `dim=1, keepdim=True`"
-        ```mermaid
-        flowchart LR
-            1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d--> 3["`[B, 1, W, H]`"]
-            classDef d fill:lightcyan,stroke:lightblue;
-        ```
-
+    !!! tip "Diagram"
+        === "`dim='spatial', keepdim=True`"
+            ```mermaid
+            flowchart LR
+                1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d-->
+                3["`[B, C, 1, 1]`"]
+                classDef d fill:lightcyan,stroke:lightblue;
+            ```
+        === "`dim='spatial', keepdim=True`"
+            ```mermaid
+            flowchart LR
+                1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d-->
+                3["`[B, C]`"]
+                classDef d fill:lightcyan,stroke:lightblue;
+            ```
+        === "`dim=1, keepdim=True`"
+            ```mermaid
+            flowchart LR
+                1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d-->
+                3["`[B, 1, W, H]`"]
+                classDef d fill:lightcyan,stroke:lightblue;
+            ```
     """
 
     def __init__(
@@ -295,37 +296,38 @@ class SqzEx(nn.Sequential):
     r"""
     Concurrent Spatial and Channel Squeeze & Spatial Excitation layer
 
-    !!! tip "Diagram when `mode='+'`"
-        ```mermaid
-        flowchart LR
-            6(("+")):::d  --> 7["`[C, W]`"]
-            1["`[C, W]`"] ---2("Channel Squeeze & Excite"):::w--> 3["`[C, W]`"]
-            1             ---4("Spatial Squeeze & Excite"):::w--> 5["`[C, W]`"]
-            3 --- 6
-            5 --> 6
-            classDef d fill:lightcyan,stroke:lightblue;
-            classDef w fill:papayawhip,stroke:peachpuff;
-        ```
-
-    !!! tip "Diagram when `mode='cs'`"
-        ```mermaid
-        flowchart LR
-            1["`[C, W]`"] ---2("Channel Squeeze & Excite"):::w-->
-            3["`[C, W]`"] ---4("Spatial Squeeze & Excite"):::w-->
-            5["`[C, W]`"]
-            classDef d fill:lightcyan,stroke:lightblue;
-            classDef w fill:papayawhip,stroke:peachpuff;
-        ```
-
-    !!! tip "Diagram when `mode='sc'`"
-        ```mermaid
-        flowchart LR
-            1["`[C, W]`"] ---2("Spatial Squeeze & Excite"):::w-->
-            3["`[C, W]`"] ---4("Channel Squeeze & Excite"):::w-->
-            5["`[C, W]`"]
-            classDef d fill:lightcyan,stroke:lightblue;
-            classDef w fill:papayawhip,stroke:peachpuff;
-        ```
+    !!! tip "Diagram"
+        === "`mode='+'`"
+            ```mermaid
+            flowchart LR
+                6(("+")):::d  --> 7["`[C, W]`"]
+                1["`[C, W]`"] ---2("Channel Squeeze & Excite"):::w-->
+                3["`[C, W]`"]
+                1             ---4("Spatial Squeeze & Excite"):::w-->
+                5["`[C, W]`"]
+                3 --- 6
+                5 --> 6
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef w fill:papayawhip,stroke:peachpuff;
+            ```
+        === "`mode='cs'`"
+            ```mermaid
+            flowchart LR
+                1["`[C, W]`"] ---2("Channel Squeeze & Excite"):::w-->
+                3["`[C, W]`"] ---4("Spatial Squeeze & Excite"):::w-->
+                5["`[C, W]`"]
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef w fill:papayawhip,stroke:peachpuff;
+            ```
+        === "`mode='sc'`"
+            ```mermaid
+            flowchart LR
+                1["`[C, W]`"] ---2("Spatial Squeeze & Excite"):::w-->
+                3["`[C, W]`"] ---4("Channel Squeeze & Excite"):::w-->
+                5["`[C, W]`"]
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef w fill:papayawhip,stroke:peachpuff;
+            ```
         Note that the batch dimension is not represented, but must
         be present.
 
@@ -578,37 +580,36 @@ class BlockAttention(nn.Sequential):
     """
     Channel + Spatial Attention layer
 
-    !!! tip "Diagram when `mode='+'`"
-        ```mermaid
-        flowchart LR
-            6(("+")):::d  --> 7["`[C, W]`"]
-            1["`[C, W]`"] ---2("Channel Attention"):::w--> 3["`[C, W]`"]
-            1             ---4("Spatial Attention"):::w--> 5["`[C, W]`"]
-            3 --- 6
-            5 --> 6
-            classDef d fill:lightcyan,stroke:lightblue;
-            classDef w fill:papayawhip,stroke:peachpuff;
-        ```
-
-    !!! tip "Diagram when `mode='cs'`"
-        ```mermaid
-        flowchart LR
-            1["`[C, W]`"] ---2("Channel Attention"):::w-->
-            3["`[C, W]`"] ---4("Spatial Attention"):::w-->
-            5["`[C, W]`"]
-            classDef d fill:lightcyan,stroke:lightblue;
-            classDef w fill:papayawhip,stroke:peachpuff;
-        ```
-
-    !!! tip "Diagram when `mode='sc'`"
-        ```mermaid
-        flowchart LR
-            1["`[C, W]`"] ---2("Spatial Attention"):::w-->
-            3["`[C, W]`"] ---4("Channel Attention"):::w-->
-            5["`[C, W]`"]
-            classDef d fill:lightcyan,stroke:lightblue;
-            classDef w fill:papayawhip,stroke:peachpuff;
-        ```
+    !!! tip "Diagram"
+        === "`mode='+'`"
+            ```mermaid
+            flowchart LR
+                6(("+")):::d  --> 7["`[C, W]`"]
+                1["`[C, W]`"] ---2("Channel Attention"):::w--> 3["`[C, W]`"]
+                1             ---4("Spatial Attention"):::w--> 5["`[C, W]`"]
+                3 --- 6
+                5 --> 6
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef w fill:papayawhip,stroke:peachpuff;
+            ```
+        === "`mode='cs'`"
+            ```mermaid
+            flowchart LR
+                1["`[C, W]`"] ---2("Channel Attention"):::w-->
+                3["`[C, W]`"] ---4("Spatial Attention"):::w-->
+                5["`[C, W]`"]
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef w fill:papayawhip,stroke:peachpuff;
+            ```
+        === "mode='sc'`"
+            ```mermaid
+            flowchart LR
+                1["`[C, W]`"] ---2("Spatial Attention"):::w-->
+                3["`[C, W]`"] ---4("Channel Attention"):::w-->
+                5["`[C, W]`"]
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef w fill:papayawhip,stroke:peachpuff;
+            ```
         Note that the batch dimension is not represented, but must
         be present.
 

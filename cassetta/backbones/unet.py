@@ -1,3 +1,4 @@
+__all__ = ['UNet']
 from torch import nn
 from typing import Optional, Union, Literal
 from cassetta.core.typing import (
@@ -68,23 +69,44 @@ class UNet(nn.Module):
                 classDef d fill:lightcyan,stroke:lightblue;
                 classDef o fill:mistyrose,stroke:lightpink;
             ```
+
+    !!! note "Difference with Ronneberger et al."
+        - Default parameters are from Ronneberger et al.
+        - However, instead of performing a 3x3 channel-expanding
+          convolution + ReLU in the encoder, we first perform a
+          1x1 channel-expanding convolution without ReLU, followed by
+          a 3x3 channel-preserving convolution + ReLU.
+        - Both implementations have the same reprentation power,
+          although ours adds unneeded free parameters.
+        - The benefit of our approach is it brings a bit more flexibility.
+          We can easily replace max-pooling with other types of downsampling
+          operators (e.g., linear downsampling or strided convolution)
+          using `pool_mode="interpolate"` or `pool_mode="conv"`.
+
+    !!! quote "Reference"
+        Ronneberger, Fischer & Brox, **"U-Net: Convolutional Networks
+        for Biomedical Image Segmentation."**
+        _MICCAI_ (2015). [arxiv:1505.04597](https://arxiv.org/abs/1505.04597)
     """  # noqa: E501
 
     def __init__(
         self,
         ndim: int,
-        nb_features: OneOrSeveral[int] = 16,
+        nb_features: OneOrSeveral[int] = 64,
         mul_features: int = 2,
-        nb_levels: int = 3,
+        nb_levels: int = 5,
         nb_levels_decoder: Optional[int] = None,
         nb_conv_per_level: int = 2,
+        kernel_size: OneOrSeveral[int] = 3,
+        residual: bool = False,
         activation: ActivationType = 'ReLU',
         norm: NormType = None,
         dropout: DropoutType = None,
         attention: AttentionType = None,
         order: str = 'cndax',
-        pool_mode: str = 'interpolate',
-        unpool_mode: Optional[str] = None,
+        pool_factor: OneOrSeveral[int] = 2,
+        pool_mode: str = 'pool',
+        unpool_mode: Optional[str] = 'conv',
         skip: Union[bool, Literal['+']] = True,
     ):
         """
@@ -104,6 +126,10 @@ class UNet(nn.Module):
             Number of levels in the decoder
         nb_conv_per_level : int
             Number of convolutional layers at each level.
+        kernel_size : [list of] int
+            Kernel size
+        residual : bool
+            Use residual connections between convolutional blocks
         activation : ActivationLike
             Type of activation
         norm : NormType
@@ -112,6 +138,10 @@ class UNet(nn.Module):
             Channel dropout probability
         attention : AttentionType
             Attention
+        order : str
+            Modules order (permutation of 'ncdax')
+        pool_factor : [list of] int
+            Down/Upsampling factor (per dimension).
         pool_mode : {'interpolate', 'conv', 'pool'}
             Method used to go down one level.
 
@@ -135,19 +165,19 @@ class UNet(nn.Module):
         nb_levels_decoder = nb_levels_decoder or nb_levels
         if isinstance(nb_features, int):
             enc_features = [
-                nb_features * mul_features**level
+                int(nb_features * mul_features**level)
                 for level in range(nb_levels)
             ]
         else:
             enc_features = list(nb_features)
             enc_features += [
-                enc_features[-1:] * mul_features**level
+                int(enc_features[-1:] * mul_features**level)
                 for level in range(nb_levels - len(enc_features))
             ]
             enc_features = enc_features[:nb_levels]
         dec_features = list(reversed(enc_features))
         dec_features += [
-            dec_features[-1:] * mul_features**(-level)
+            max(1, int(dec_features[-1:] * mul_features**(-level)))
             for level in range(nb_levels_decoder - len(dec_features))
         ]
         dec_features = dec_features[:nb_levels_decoder]
@@ -164,11 +194,14 @@ class UNet(nn.Module):
             mul_features=1,
             nb_levels=nb_levels,
             nb_conv_per_level=nb_conv_per_level,
+            kernel_size=kernel_size,
+            residual=residual,
             activation=activation,
             norm=norm,
             dropout=dropout,
             attention=attention,
             order=order,
+            pool_factor=pool_factor,
             pool_mode=pool_mode,
         )
         self.decoder = ConvDecoder(
@@ -177,11 +210,14 @@ class UNet(nn.Module):
             nb_levels=nb_levels_decoder,
             nb_conv_per_level=nb_conv_per_level,
             skip=(skip and skip != '+'),
+            kernel_size=kernel_size,
+            residual=residual,
             activation=activation,
             norm=norm,
             dropout=dropout,
             attention=attention,
             order=order,
+            unpool_factor=pool_factor,
             unpool_mode=unpool_mode,
         )
         self.skip = skip

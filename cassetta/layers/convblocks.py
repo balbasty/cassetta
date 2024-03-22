@@ -107,7 +107,7 @@ class ConvBlock(ConvBlockBase):
     A single convolution, in a Norm + Conv + Dropout + Activation + Attention
     group.
 
-    !!! warning "Padding is always `'same'`
+    !!! warning "Padding is always `'same'`"
 
     !!! tip "Ordering"
         The order of the Norm/Conv/Dropout/Activation layers can be chosen
