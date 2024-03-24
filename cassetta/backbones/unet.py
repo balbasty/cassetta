@@ -226,17 +226,19 @@ class UNet(nn.Module):
         """
         Parameters
         ----------
-        inp : (B, in_channels, *inp_size)
+        inp : (B, nb_features[0], *inp_size)
             Input tensor
         return_all : bool
             Return all intermediate output tensors (at each level).
 
         Returns
         -------
-        out : [tuple of] (B, nb_features[-1], *out_size) tensor
+        out : [tuple of] (B, nb_features[n], *out_size[n]) tensor
             Output tensor(s).
-            If `return_all`, return all intermediate tensors, from
-            coarsest to finest. Else, return the final tensor only.
+
+            - If `return_all`, return all intermediate tensors, from
+              coarsest to finest.
+            - Else, return the final tensor only.
         """
         out = self.encoder(inp, return_all=bool(self.skip))
         if self.skip:

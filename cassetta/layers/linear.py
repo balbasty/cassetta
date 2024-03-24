@@ -2,6 +2,7 @@ import torch
 import math
 from torch import nn
 from torch.nn import functional as F
+from torch.nn.modules.lazy import LazyModuleMixin
 from torch import Tensor
 from typing import Optional, Union, Callable
 from cassetta.core.typing import DeviceType
@@ -102,7 +103,7 @@ class Linear(nn.Module):
         )
 
 
-class LazyLinear(nn.LazyModuleMixin, Linear):
+class LazyLinear(LazyModuleMixin, Linear):
     """
     A linear layer whose weights get allocated lazily, on first call.
 

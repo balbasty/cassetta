@@ -218,7 +218,7 @@ class UpPool(nn.Sequential):
     !!! warning "This layer includes no activation/norm/dropout"
 
     ```
-    Indices ----------------------------\
+    Indices --------------------------- .
                                         |
                                         v
     Cinp -[conv 1x1x1]-> Cout -> -[maxunpool x2]-> Cout
@@ -325,7 +325,7 @@ class DownInterpol(nn.Sequential):
         super().__init__()
         Conv = getattr(nn, f'Conv{ndim}d')
         out_channels = out_channels or inp_channels
-        factor = list(map(lambda x: 1/x, ensure_list(size)))
+        factor = list(map(lambda x: 1/x, ensure_list(size, ndim)))
         layers = [Resize(
             factor=factor,
             interpolation=interpolation,
@@ -393,7 +393,7 @@ class UpInterpol(nn.Sequential):
         else:
             layers += [DoNothing()]
         layers += [Resize(
-            factor=size,
+            factor=ensure_list(size, ndim),
             interpolation=interpolation,
             bound=bound,
             prefilter=prefilter,

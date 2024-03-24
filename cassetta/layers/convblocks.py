@@ -7,7 +7,7 @@ __all__ = [
 import torch
 from torch import nn
 from torch import Tensor
-from typing import Optional, Union, Literal, List
+from typing import Optional, Union, Literal
 from functools import partial
 from cassetta.core.typing import (
     OneOrSeveral,
@@ -19,6 +19,7 @@ from cassetta.core.typing import (
 from .updown import (
     DownConv, DownPool, DownInterpol, UpConv, UpPool, UpInterpol
 )
+from .simple import ModuleGroup
 from .activations import make_activation
 from .attention import make_attention
 from .conv import make_conv
@@ -228,86 +229,6 @@ class ConvBlock(ConvBlockBase):
         return super().forward(inp)
 
 
-class ModuleGroup(nn.Sequential):
-    r"""
-    Multiple layers stacked together, eventually with residual connections.
-
-    ```
-    Non-residual variant:
-
-    C -[block]-> ... -[block]-> C
-       \____________________/
-               nb_block
-
-    Residual variant:
-
-    .-------------.           .-------------.
-    |             |           |             |
-    |             v           |             v
-    C -[block]-> (+) -> C ... C -[block]-> (+) -> C
-       \_____________________________________/
-                      nb_block
-    ```
-
-    !!! tip "The recurrent variant shares weights across blocks"
-
-    !!! warning "The number of channels should be preserved throughout"
-
-    !!! warning "The spatial size should be preserved throughout"
-    """
-    def __init__(
-        self,
-        blocks: List[nn.Module],
-        residual: bool = False,
-        skip: int = 0,
-    ):
-        """
-        Parameters
-        ----------
-        nb_blocks : int
-            Number of blocks
-        residual : bool
-            Use residual connections between blocks
-        skip : int
-            Number of additional skipped channels in the input tensor.
-        """
-        super().__init__(*blocks)
-        self.residual = residual
-        self.skip = skip
-
-    def forward(self, inp: Tensor) -> Tensor:
-        """
-        Parameters
-        ----------
-        inp : (B, channels, *size) tensor
-
-        Returns
-        -------
-        out : (B, channels, *size) tensor
-        """
-        x = inp
-
-        layers = list(self)
-        if self.skip:
-            first, *layers = layers
-            if self.residual:
-                identity = x
-                x = first(x)
-                x += identity[:, :x.shape[1]]
-            else:
-                x = first(x)
-
-        if self.residual:
-            for layer in layers:
-                identity = x
-                x = layer(x)
-                x += identity
-        else:
-            for layer in layers:
-                x = layer(x)
-        return x
-
-
 class ConvGroup(ModuleGroup):
     r"""
     Multiple convolution blocks stacked together
@@ -395,7 +316,7 @@ class ConvGroup(ModuleGroup):
         OneConv = partial(
             ConvBlock,
             ndim,
-            output_channels=channels,
+            out_channels=channels,
             kernel_size=kernel_size,
             dilation=dilation,
             bias=bias,
@@ -417,7 +338,7 @@ class ConvGroup(ModuleGroup):
             layers += [OneConv(channels)] * nb_conv
         else:
             layers += [OneConv(channels) for _ in range(nb_conv)]
-        super().__init__(*layers, residual=residual, skip=skip)
+        super().__init__(layers, residual=residual, skip=skip)
 
 
 class DownGroup(nn.Sequential):
@@ -552,7 +473,7 @@ class DownConvGroup(DownGroup):
         )
         conv = ConvGroup(
             ndim=ndim,
-            channel=out_channels,
+            channels=out_channels,
             nb_conv=nb_conv,
             kernel_size=kernel_size,
             dilation=dilation,
@@ -572,8 +493,9 @@ class DownConvGroup(DownGroup):
 
 class UpGroup(nn.Sequential):
 
-    def __init__(self, module_up, module_block):
+    def __init__(self, module_up, module_block, skip=False):
         super().__init__(module_up, module_block)
+        self.skip = skip
 
     def forward(
         self,
@@ -603,7 +525,7 @@ class UpGroup(nn.Sequential):
         kwargs = dict(indices=indices) if indices is not None else {}
         out = up(inp, **kwargs)
         if skips:
-            if self.skip == 0:
+            if not self.skip:
                 for skip in skips:
                     out += skip
             else:
@@ -711,7 +633,7 @@ class UpConvGroup(UpGroup):
         )
         conv = ConvGroup(
             ndim=ndim,
-            channel=out_channels,
+            channels=out_channels,
             nb_conv=nb_conv,
             kernel_size=kernel_size,
             dilation=dilation,
@@ -727,5 +649,4 @@ class UpConvGroup(UpGroup):
             recurrent=recurrent,
             skip=skip,
         )
-        super().__init__(up, conv)
-        self.skip = skip
+        super().__init__(up, conv, skip=skip)

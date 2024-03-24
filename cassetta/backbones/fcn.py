@@ -100,6 +100,7 @@ class ConvEncoder(nn.Sequential):
             attention=attention,
             order=order,
             nb_conv=nb_conv_per_level,
+            factor=pool_factor,
             mode=pool_mode,
         )
 
@@ -118,7 +119,7 @@ class ConvEncoder(nn.Sequential):
             enc_features = enc_features[:nb_levels]
 
         # build encoder
-        encoder = [make_inp(enc_features[0], enc_features[0])]
+        encoder = [make_inp(enc_features[0])]
         for i in range(1, nb_levels):
             encoder += [make_down(enc_features[i-1], enc_features[i])]
         super().__init__(*encoder)
@@ -145,7 +146,7 @@ class ConvEncoder(nn.Sequential):
             for layer in self:
                 out = layer(out)
                 all.append(out)
-            return tuple(out)
+            return tuple(all)
         else:
             return super().forward(inp)
 
@@ -268,6 +269,7 @@ class ConvDecoder(nn.Sequential):
             attention=attention,
             order=order,
             nb_conv=nb_conv_per_level,
+            factor=unpool_factor,
             mode=unpool_mode,
         )
 
@@ -320,9 +322,6 @@ class ConvDecoder(nn.Sequential):
             If `return_all`, return all intermediate tensors, from
             coarsest to finest. Else, return the final tensor only.
         """
-        if not return_all:
-            return super().forward(inp)
-
         inp, *skips = inp
         skips = list(skips)
         all = []

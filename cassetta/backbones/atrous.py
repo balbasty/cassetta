@@ -111,8 +111,7 @@ class MeshNet(ModuleGroup):
         make_layer = partial(
             ConvGroup,
             ndim,
-            inp_channels=nb_features,
-            out_channels=nb_features,
+            channels=nb_features,
             kernel_size=kernel_size,
             residual=residual,
             activation=activation,
@@ -223,8 +222,7 @@ class ATrousNet(ModuleGroup):
         make_layer = partial(
             ConvGroup,
             ndim,
-            inp_channels=nb_features,
-            out_channels=nb_features,
+            channels=nb_features,
             kernel_size=kernel_size,
             residual=residual,
             activation=activation,

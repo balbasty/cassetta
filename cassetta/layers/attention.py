@@ -1,6 +1,5 @@
 __all__ = [
     'make_attention',
-    'GlobalPool',
     'ChannelSqzEx',
     'SpatialSqzEx',
     'SqzEx',
@@ -12,12 +11,12 @@ __all__ = [
 ]
 from torch import nn
 from torch import Tensor
-from typing import Literal, Union, Optional
+from typing import Literal, Optional
 from cassetta.core.typing import (
     ActivationType, OneOrSeveral, AttentionType, DeviceType, DataType)
 from cassetta.core.utils import to_torch_dtype
 from .activations import make_activation
-from .simple import Cat, MoveDim
+from .simple import Cat, MoveDim, GlobalPool
 from .linear import Linear
 from .conv import Conv
 
@@ -79,81 +78,6 @@ def make_attention(
     if not isinstance(attention, nn.Module):
         raise ValueError('Attention did not instantiate a Module')
     return attention
-
-
-class GlobalPool(nn.Module):
-    """
-    Global pooling across spatial dimensions
-
-    !!! tip "Diagram"
-        === "`dim='spatial', keepdim=True`"
-            ```mermaid
-            flowchart LR
-                1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d-->
-                3["`[B, C, 1, 1]`"]
-                classDef d fill:lightcyan,stroke:lightblue;
-            ```
-        === "`dim='spatial', keepdim=True`"
-            ```mermaid
-            flowchart LR
-                1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d-->
-                3["`[B, C]`"]
-                classDef d fill:lightcyan,stroke:lightblue;
-            ```
-        === "`dim=1, keepdim=True`"
-            ```mermaid
-            flowchart LR
-                1["`[B, C, W, H]`"] ---2("`GlobalPool`"):::d-->
-                3["`[B, 1, W, H]`"]
-                classDef d fill:lightcyan,stroke:lightblue;
-            ```
-    """
-
-    def __init__(
-        self,
-        reduction: Literal['mean', 'max'] = 'mean',
-        keepdim: bool = True,
-        dim: Union[OneOrSeveral[int], Literal['spatial']] = 'spatial',
-    ):
-        """
-        Parameters
-        ----------
-        reduction : {'mean', 'max'}
-            Reduction type
-        keepdim : bool
-            Keep spatial dimensions
-        dim : [list of] int or {'spatial'}
-            Dimension(s) to pool
-        """
-        super().__init__()
-        self.reduction = reduction.lower()
-        self.keepdim = keepdim
-        self.dim = dim
-
-    def forward(self, inp):
-        """
-        Parameters
-        ----------
-        inp : (B, C, *spatial) tensor
-            Input tensor
-
-        Returns
-        -------
-        out : (B, C, [*ones]) tensor
-            Output tensor
-        """
-        if isinstance(self.dim, str):
-            if self.dim[0].lower() != 's':
-                raise ValueError('Unknown dimension:', self.dim)
-            dims = list(range(2, inp.ndim))
-        else:
-            dims = self.dim
-        if self.reduction == 'max':
-            return inp.max(dim=dims, keepdim=self.keepdim).values
-        elif self.reduction == 'mean':
-            return inp.mean(dim=dims, keepdim=self.keepdim)
-        else:
-            raise ValueError(f'Unknown reduction "{self.reduction}"')
 
 
 class ChannelSqzEx(nn.Sequential):

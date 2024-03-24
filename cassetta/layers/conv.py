@@ -9,6 +9,7 @@ import torch
 from torch import nn
 from torch import Tensor
 from torch.nn import functional as F
+from torch.nn.modules.lazy import LazyModuleMixin
 from bounds import all_bounds, pad, to_enum, BoundType as BoundEnum
 from typing import Optional, Union, Literal, Tuple, List, Callable
 from cassetta.core.typing import OneOrSeveral, DeviceType, BoundType
@@ -21,7 +22,7 @@ def make_conv(
     out_channels: Optional[int] = None,
     kernel_size: OneOrSeveral[int] = 3,
     stride: OneOrSeveral[int] = 1,
-    padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 'same',
+    padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 0,
     dilation: OneOrSeveral[int] = 1,
     output_padding: OneOrSeveral[int] = 0,
     groups: int = 1,
@@ -142,7 +143,7 @@ class _Conv(nn.Module):
         out_channels: Optional[int] = None,
         kernel_size: OneOrSeveral[int] = 3,
         stride: OneOrSeveral[int] = 1,
-        padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 'same',
+        padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 0,
         dilation: OneOrSeveral[int] = 1,
         output_padding: OneOrSeveral[int] = 0,
         groups: int = 1,
@@ -225,7 +226,7 @@ class _Conv(nn.Module):
         self.out_channels = self.out_channels or self.inp_channels
         self.kernel_size = ensure_tuple(self.kernel_size, self.ndim)
         self.stride = ensure_tuple(self.stride, self.ndim)
-        self.dilation = ensure_tuple(self.dilation)
+        self.dilation = ensure_tuple(self.dilation, self.ndim)
         self.output_padding = ensure_tuple(self.output_padding, self.ndim)
 
         if self.groups <= 0:
@@ -255,15 +256,17 @@ class _Conv(nn.Module):
 
         if isinstance(self.padding, str) and self.inp_channels:
             if self.padding == 'same':
-                self.padding = [
+                self._padding_lr = [
                     ((d * (k - 1))//2, d * (k - 1) - (d * (k - 1))//2)
                     for d, k in zip(self.dilation, self.kernel_size)
                 ]
-                self.padding = [q for p in self.padding for q in p]
-            elif self.padding == 'valid':
-                self.padding = [0] * (2*self.ndim)
+                self._padding_lr = [q for p in self._padding_lr for q in p]
+            else:
+                assert self.padding == 'valid'
+                self._padding_lr = [0] * (2*self.ndim)
         else:
             self.padding = ensure_tuple(self.padding, self.ndim)
+            self._padding_lr = [q for p in self.padding for q in (p, p)]
 
     def reset_parameters(self) -> None:
         # Setting a=sqrt(5) in kaiming_uniform is the same as
@@ -307,7 +310,8 @@ class Conv(_Conv):
     transposed: bool = False
 
     def check_parameters(self):
-        if self.output_padding != (0,) * len(self.kernel_size):
+        super().check_parameters()
+        if self.output_padding != (0,) * self.ndim:
             raise ValueError(
                 'Cannot use output_padding in non-transposed convolution'
             )
@@ -315,7 +319,6 @@ class Conv(_Conv):
             raise ValueError(
                 'Only "zeros" padding mode is supported for ConvTransposed'
             )
-        return super().check_parameters()
 
     def forward(self, inp: Tensor) -> Tensor:
         """
@@ -333,7 +336,7 @@ class Conv(_Conv):
         padding = self.padding
         conv = getattr(F, f'conv{ndim}d')
         if to_enum(self.padding_mode) != BoundEnum.zeros:
-            inp = pad(inp, self.padding, mode=self.padding_mode)
+            inp = pad(inp, self._padding_lr, mode=self.padding_mode)
             padding = 0
         return conv(inp, self.weight, self.bias, self.stride,
                     padding, self.dilation, self.groups)
@@ -413,7 +416,7 @@ class ConvTransposed(_Conv):
             output_padding, self.groups, self.dilation)
 
 
-class LazyConv(nn.lazy.LazyModuleMixin, Conv):
+class LazyConv(LazyModuleMixin, Conv):
     """
     A convolution layer whose `ndim` and `inp_channels` are guessed
     lazily at run time.
@@ -425,7 +428,7 @@ class LazyConv(nn.lazy.LazyModuleMixin, Conv):
         out_channels: Optional[Union[int, Callable]] = None,
         kernel_size: OneOrSeveral[int] = 3,
         stride: OneOrSeveral[int] = 1,
-        padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 'same',
+        padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 0,
         dilation: OneOrSeveral[int] = 1,
         output_padding: OneOrSeveral[int] = 0,
         groups: int = 1,
@@ -493,7 +496,7 @@ class LazyConv(nn.lazy.LazyModuleMixin, Conv):
                 self.reset_parameters()
 
 
-class LazyConvTransposed(nn.lazy.LazyModuleMixin, Conv):
+class LazyConvTransposed(LazyModuleMixin, Conv):
     """
     A transposed convolution layer whose `ndim` and `inp_channels` are
     guessed lazily at run time.
@@ -505,7 +508,7 @@ class LazyConvTransposed(nn.lazy.LazyModuleMixin, Conv):
         out_channels: Optional[Union[int, Callable]] = None,
         kernel_size: OneOrSeveral[int] = 3,
         stride: OneOrSeveral[int] = 1,
-        padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 'same',
+        padding: Union[Literal['same', 'valid'], OneOrSeveral[int]] = 0,
         dilation: OneOrSeveral[int] = 1,
         output_padding: OneOrSeveral[int] = 0,
         groups: int = 1,
@@ -585,6 +588,8 @@ class SeparableConv(nn.Sequential):
     convolutions (e.g., Wx1x1, 1xHx1, 1x1xD).
 
     !!! warning "The number of input and output channels will be the same"
+
+    !!! warning "Padding mode is `'same'` by default"
     """
 
     def __init__(
@@ -608,10 +613,15 @@ class SeparableConv(nn.Sequential):
         out_channels : int, default=`inp_channels`
             Number of output channels
         kernel_size : [list of] int
+            Kernel size
         dilation : [list of] int
-        bias : bool
-        padding : int or {'same'}
+            Space between kernel elements
+        bias : int
+            Add a learnable bias term
+        padding : {'same', 'valid'} or [list of] int
+            Amount of padding to apply
         padding_mode : BoundType
+            How to pad the tensor
         """
         out_channels = out_channels or inp_channels
         mid_channels = max(inp_channels, out_channels)

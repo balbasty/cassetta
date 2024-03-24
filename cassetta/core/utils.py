@@ -186,20 +186,17 @@ if hasattr(np, 'float16'):
     else:
         _dtype_upcast2torch[np.float16] = torch.float32
 _dtype_trunc2torch = {
-    np.uint64: torch.int64,
-    np.uint128: torch.int64,
-    np.uint256: torch.int64,
-    np.int128: torch.int64,
-    np.int256: torch.int64,
-    np.float80: torch.float64,
-    np.float96: torch.float64,
-    np.float128: torch.float64,
-    np.float256: torch.float64,
-    np.complex160: torch.complex128,
-    np.complex192: torch.complex128,
-    np.complex256: torch.complex128,
-    np.complex512: torch.complex128,
+    np.uint64: torch.int64
 }
+for dt in ('uint128', 'uint256', 'int128', 'int256'):
+    if hasattr(np, dt):
+        _dtype_trunc2torch[dt] = torch.int64
+for dt in ('float80', 'float96', 'float128', 'float256'):
+    if hasattr(np, dt):
+        _dtype_trunc2torch[dt] = torch.float64
+for dt in ('complex160', 'complex192', 'complex256', 'complex512'):
+    if hasattr(np, dt):
+        _dtype_trunc2torch[dt] = torch.complex128
 
 
 def to_torch_dtype(dtype, upcast=False, trunc=False):

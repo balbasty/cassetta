@@ -1,9 +1,6 @@
 import torch
+import interpol as torch_interpol
 from torch import nn
-from interpol import (
-    grid_pull, grid_push, resize, restrict, flowmom, flow_upsample2,
-    identity_grid, add_identity_grid, spline_coeff_nd,
-)
 from cassetta.core.utils import ensure_list
 from cassetta.core.typing import InterpolationType, BoundType
 
@@ -71,7 +68,7 @@ class GridPull(nn.Module):
             Deformed image.
         """
         grid = torch.movedim(grid, 1, -1)
-        return grid_pull(input, grid, **self._options)
+        return torch_interpol.grid_pull(input, grid, **self._options)
 
 
 class FlowPull(GridPull):
@@ -102,7 +99,7 @@ class FlowPull(GridPull):
             Deformed image.
         """
         flow = torch.movedim(flow, 1, -1)
-        flow = add_identity_grid(flow)
+        flow = torch_interpol.add_identity_grid(flow)
         flow = torch.movedim(flow, -1, 1)
         return super().forward(input, flow)
 
@@ -167,7 +164,7 @@ class GridPush(nn.Module):
             Splatted image.
         """
         grid = torch.movedim(grid, 1, -1)
-        return grid_push(input, grid, shape, **self._options)
+        return torch_interpol.grid_push(input, grid, shape, **self._options)
 
 
 class FlowPush(GridPush):
@@ -194,7 +191,7 @@ class FlowPush(GridPush):
             Deformed image.
         """
         flow = torch.movedim(flow, 1, -1)
-        flow = add_identity_grid(flow)
+        flow = torch_interpol.add_identity_grid(flow)
         flow = torch.movedim(flow, -1, 1)
         return super().forward(input, flow, shape)
 
@@ -287,6 +284,16 @@ class Resize(nn.Module):
             prefilter=self.prefilter,
         )
 
+    def extra_repr(self) -> str:
+        parent_repr = super().extra_repr()
+        parent_repr = [parent_repr] if parent_repr else []
+        this_repr = []
+        if self.factor:
+            this_repr += [f'factor={self.factor}']
+        if self.shape:
+            this_repr += [f'factor={self.factor}']
+        return ', '.join(this_repr + parent_repr)
+
     def forward(self, input, **kwargs):
         """
         Resize an image
@@ -308,7 +315,11 @@ class Resize(nn.Module):
         """
         options = self._options
         options.update(kwargs)
-        return resize(input, **options)
+        if isinstance(options['factor'], (int, float)):
+            options['factor'] = [options['factor']] * (input.ndim-2)
+        if isinstance(options['shape'], (int, float)):
+            options['shape'] = [options['shape']] * (input.ndim-2)
+        return torch_interpol.resize(input, **options)
 
 
 class Restrict(nn.Module):
@@ -394,6 +405,16 @@ class Restrict(nn.Module):
             reduce_sum=self.reduce_sum,
         )
 
+    def extra_repr(self) -> str:
+        parent_repr = super().extra_repr()
+        parent_repr = [parent_repr] if parent_repr else []
+        this_repr = []
+        if self.factor:
+            this_repr += [f'factor={self.factor}']
+        if self.shape:
+            this_repr += [f'factor={self.factor}']
+        return ', '.join(this_repr + parent_repr)
+
     def forward(self, input, **kwargs):
         """
         Restrict an image
@@ -415,7 +436,7 @@ class Restrict(nn.Module):
         """
         options = self._options
         options.update(kwargs)
-        return restrict(input, **options)
+        return torch_interpol.restrict(input, **options)
 
 
 class ResizeFlow(Resize):
@@ -522,7 +543,7 @@ class ValueToCoeff(nn.Module):
             Input image of spline coefficients
         """
         ndim = self.input.ndim - 2
-        return spline_coeff_nd(input, **self._options, dim=ndim)
+        return torch_interpol.spline_coeff_nd(input, **self._options, dim=ndim)
 
 
 class CoeffToValue(nn.Module):
@@ -566,9 +587,9 @@ class CoeffToValue(nn.Module):
         output : (batch, channel, *shape) tensor
             Input image of values
         """
-        grid = identity_grid(
+        grid = torch_interpol.identity_grid(
             input.shape[2:], dtype=input.dtype, device=input.device)
-        return grid_pull(input, grid, **self._options)
+        return torch_interpol.grid_pull(input, grid, **self._options)
 
 
 class FlowExp(nn.Module):
@@ -682,6 +703,9 @@ class FlowMomentum(nn.Module):
         bound : bound_like
             Boundary conditions
         """
+        if not hasattr(torch_interpol, 'flowmom'):
+            raise NotImplementedError(
+                'FlowMomentum requires torch-interpol >= 1')
         super().__init__()
         self.absolute = absolute
         self.membrane = membrane
@@ -718,7 +742,7 @@ class FlowMomentum(nn.Module):
             Momentum field
         """
         flow = torch.movedim(flow, 1, -1)
-        flow = flowmom(flow, **self._options)
+        flow = torch_interpol.flowmom(flow, **self._options)
         flow = torch.movedim(flow, -1, 1)
         return flow
 
@@ -759,6 +783,9 @@ class SplineUp2(nn.Module):
         bound : bound_like
             Boundary conditions
         """
+        if not hasattr(torch_interpol, 'flow_upsample2'):
+            raise NotImplementedError(
+                'SplineUp2 requires torch-interpol >= 1')
         super().__init__()
         self.interpolation = interpolation
         self.bound = bound
@@ -783,6 +810,6 @@ class SplineUp2(nn.Module):
             Spline coefficients of a larger displacement field
         """
         flow = torch.movedim(flow, 1, -1)
-        flow = flow_upsample2(flow, **self._options)
+        flow = torch_interpol.flow_upsample2(flow, **self._options)
         flow = torch.movedim(flow, -1, 1)
         return flow
