@@ -53,11 +53,16 @@ def make_activation(activation, **kwargs):
         elif activation in locals():
             activation = locals()[activation]
         else:
-            raise ValueError(f'Unknown activation "{activation}"')
+            inp_act = activation
+            activation = _find_act(activation, [nn.__dict__, locals()])
+            if not activation:
+                raise ValueError(f'Unknown activation "{inp_act}"')
 
     if isinstance(activation, type):
         if not issubclass(activation, nn.Module):
             raise TypeError('Activation should be a Module subclass')
+        if activation is nn.Softmax:
+            kwargs.setdefault('dim', 1)
         activation = activation(**kwargs)
 
     elif callable(activation):
@@ -66,6 +71,23 @@ def make_activation(activation, **kwargs):
     if not isinstance(activation, nn.Module):
         raise ValueError('Activation did not instantiate a Module')
     return activation
+
+
+def _find_act(activation, module_dict):
+
+    if isinstance(module_dict, (list, tuple)):
+        module_dicts = module_dict
+        for module_dict in module_dicts:
+            maybe_act = _find_act(activation, module_dict)
+            if maybe_act:
+                return maybe_act
+        return None
+
+    activation = activation.lower()
+    for key, value in module_dict.items():
+        if key.lower() == activation:
+            return value
+    return None
 
 
 class SymExp(nn.Module):

@@ -22,12 +22,20 @@ class DownConv(nn.Module):
     !!! warning "This layer includes no activation/norm/dropout"
     """
 
+    @property
+    def inp_channels(self) -> int:
+        return self.conv.inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self.conv.out_channels
+
     def __init__(
         self,
         ndim: int,
         inp_channels: int,
         out_channels: Optional[int] = None,
-        size: OneOrSeveral[int] = 2,
+        factor: OneOrSeveral[int] = 2,
     ):
         """
         Parameters
@@ -38,8 +46,8 @@ class DownConv(nn.Module):
             Number of input channels
         out_channels : int, ddefault=`inp_channels`
             Number of output channels
-        size : [list of] int
-            Downsampling size
+        factor : [list of] int
+            Downsampling factor
         """
         out_channels = out_channels or inp_channels
         super().__init__()
@@ -47,8 +55,8 @@ class DownConv(nn.Module):
         self.conv = Conv(
             in_channels=inp_channels,
             out_channels=out_channels,
-            stride=size,
-            kernel_size=size,
+            stride=factor,
+            kernel_size=factor,
             padding=0,
         )
 
@@ -80,12 +88,20 @@ class UpConv(nn.Module):
     !!! warning "This layer includes no activation/norm/dropout"
     """
 
+    @property
+    def inp_channels(self) -> int:
+        return self.conv.inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self.conv.out_channels
+
     def __init__(
         self,
         ndim: int,
         inp_channels: int,
         out_channels: Optional[int] = None,
-        size: OneOrSeveral[int] = 2,
+        factor: OneOrSeveral[int] = 2,
     ):
         """
         Parameters
@@ -96,8 +112,8 @@ class UpConv(nn.Module):
             Number of input channels
         out_channels : int, ddefault=`inp_channels`
             Number of output channels
-        size : [list of] int
-            Downsampling size
+        factor : [list of] int
+            Downsampling factor
         """
         out_channels = out_channels or inp_channels
         super().__init__()
@@ -105,8 +121,8 @@ class UpConv(nn.Module):
         self.conv = Conv(
             in_channels=inp_channels,
             out_channels=out_channels,
-            stride=size,
-            kernel_size=size,
+            stride=factor,
+            kernel_size=factor,
             padding=0,
         )
 
@@ -147,7 +163,7 @@ class DownPool(nn.Sequential):
         ndim: int,
         inp_channels: int,
         out_channels: Optional[int] = None,
-        size: OneOrSeveral[int] = 2,
+        factor: OneOrSeveral[int] = 2,
         return_indices=False,
     ):
         """
@@ -159,8 +175,8 @@ class DownPool(nn.Sequential):
             Number of input channels
         out_channels : int
             Number of output channels
-        size : [list of] int
-            Kernel size
+        factor : [list of] int
+            Downsampling factor
         return_indices : bool
             Return indices on top of pooled features
         """
@@ -169,8 +185,8 @@ class DownPool(nn.Sequential):
         Conv = getattr(nn, f'Conv{ndim}d')
         out_channels = out_channels or inp_channels
         layers = [MaxPool(
-            kernel_size=size,
-            stride=size,
+            kernel_size=factor,
+            stride=factor,
             return_indices=return_indices,
         )]
         if out_channels != inp_channels:
@@ -182,6 +198,8 @@ class DownPool(nn.Sequential):
         else:
             layers += [DoNothing()]
         super().__init__(*layers)
+        self.inp_channels = inp_channels
+        self.out_channels = out_channels
 
     @property
     def return_indices(self):
@@ -230,7 +248,7 @@ class UpPool(nn.Sequential):
         ndim: int,
         inp_channels: int,
         out_channels: Optional[int] = None,
-        size: OneOrSeveral[int] = 2,
+        factor: OneOrSeveral[int] = 2,
     ):
         """
         Parameters
@@ -241,8 +259,8 @@ class UpPool(nn.Sequential):
             Number of input channels
         out_channels : int
             Number of output channels
-        size : [list of] int
-            Kernel size
+        factor : [list of] int
+            Downsampling factor
         """
         super().__init__()
         MaxUnpool = getattr(nn, f'MaxUnpool{ndim}d')
@@ -258,10 +276,12 @@ class UpPool(nn.Sequential):
         else:
             layers += [DoNothing()]
         layers += [MaxUnpool(
-            kernel_size=size,
-            stride=size,
+            kernel_size=factor,
+            stride=factor,
         )]
         super().__init__(*layers)
+        self.inp_channels = inp_channels
+        self.out_channels = out_channels
 
     def forward(self, inp: Tensor, *, indices: Tensor) -> Tensor:
         """
@@ -299,7 +319,7 @@ class DownInterpol(nn.Sequential):
         ndim: int,
         inp_channels: int,
         out_channels: Optional[int] = None,
-        size: OneOrSeveral[int] = 2,
+        factor: OneOrSeveral[int] = 2,
         interpolation: InterpolationType = 'linear',
         bound: BoundType = 'zero',
         prefilter: bool = True,
@@ -313,8 +333,8 @@ class DownInterpol(nn.Sequential):
             Number of input channels
         out_channels : int
             Number of output channels
-        size : [list of] int
-            Downsampling factor size
+        factor : [list of] int
+            Downsampling factor
         interpolation : [list of] InterpolationType
             Interpolation order.
         bound : [list of] BoundType
@@ -325,7 +345,7 @@ class DownInterpol(nn.Sequential):
         super().__init__()
         Conv = getattr(nn, f'Conv{ndim}d')
         out_channels = out_channels or inp_channels
-        factor = list(map(lambda x: 1/x, ensure_list(size, ndim)))
+        factor = list(map(lambda x: 1/x, ensure_list(factor, ndim)))
         layers = [Resize(
             factor=factor,
             interpolation=interpolation,
@@ -339,6 +359,8 @@ class DownInterpol(nn.Sequential):
                 kernel_size=1,
             )]
         super().__init__(*layers)
+        self.inp_channels = inp_channels
+        self.out_channels = out_channels
 
 
 class UpInterpol(nn.Sequential):
@@ -357,7 +379,7 @@ class UpInterpol(nn.Sequential):
         ndim: int,
         inp_channels: int,
         out_channels: Optional[int] = None,
-        size: OneOrSeveral[int] = 2,
+        factor: OneOrSeveral[int] = 2,
         interpolation: InterpolationType = 'linear',
         bound: BoundType = 'zero',
         prefilter: bool = True,
@@ -371,8 +393,8 @@ class UpInterpol(nn.Sequential):
             Number of input channels
         out_channels : int
             Number of output channels
-        size : [list of] int
-            Downsampling factor size
+        factor : [list of] int
+            Downsampling factor
         interpolation : [list of] InterpolationType
             Interpolation order.
         bound : [list of] BoundType
@@ -390,12 +412,12 @@ class UpInterpol(nn.Sequential):
                 out_channels,
                 kernel_size=1,
             )]
-        else:
-            layers += [DoNothing()]
         layers += [Resize(
-            factor=ensure_list(size, ndim),
+            factor=ensure_list(factor, ndim),
             interpolation=interpolation,
             bound=bound,
             prefilter=prefilter,
         )]
         super().__init__(*layers)
+        self.inp_channels = inp_channels
+        self.out_channels = out_channels

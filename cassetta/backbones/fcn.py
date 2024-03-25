@@ -4,7 +4,7 @@ __all__ = [
 ]
 from torch import nn
 from functools import partial
-from typing import Union
+from typing import Union, List
 from cassetta.core.typing import (
     OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType)
 from ..layers import ConvGroup, UpConvGroup, DownConvGroup
@@ -25,6 +25,18 @@ class ConvEncoder(nn.Sequential):
             classDef w fill:papayawhip,stroke:peachpuff;
         ```
     """  # noqa: E501
+
+    @property
+    def inp_channels(self) -> int:
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self[-1].out_channels
+
+    @property
+    def all_out_channels(self) -> List[int]:
+        return [layer.out_channels for layer in self]
 
     def __init__(
         self,
@@ -200,6 +212,18 @@ class ConvDecoder(nn.Sequential):
                 classDef d fill:lightcyan,stroke:lightblue;
             ```
     """
+
+    @property
+    def inp_channels(self) -> int:
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self[-1].out_channels
+
+    @property
+    def all_out_channels(self) -> List[int]:
+        return [layer.out_channels for layer in self]
 
     def __init__(
         self,

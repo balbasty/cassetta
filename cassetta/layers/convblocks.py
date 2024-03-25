@@ -39,6 +39,14 @@ class ConvBlockBase(nn.Sequential):
     - Attention (x)
     """
 
+    @property
+    def inp_channels(self) -> int:
+        return self.conv.inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self.conv.out_channels
+
     def __init__(
         self,
         ndim: int,
@@ -107,6 +115,44 @@ class ConvBlock(ConvBlockBase):
     """
     A single convolution, in a Norm + Conv + Dropout + Activation + Attention
     group.
+
+    !!! tip "Diagram"
+        === "`order='ncdax'`"
+            ```mermaid
+            flowchart LR
+                subgraph ConvBlock
+                    n("Norm"):::w-->
+                    on["C<sub>inp</sub>"]    ---c("Conv"):::w-->
+                    oc["C<sub>out</sub>"]    ---d("Dropout"):::d-->
+                    od["C<sub>out</sub>"]    ---a("Activation"):::d-->
+                    oa["C<sub>out</sub>"]    --- x("Attention"):::w
+                end
+                i["C<sub>inp</sub>"]:::i --- n
+                x --> ox["C<sub>out</sub>"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+        === "`order='cndax'`"
+            ```mermaid
+            flowchart LR
+                subgraph ConvBlock
+                    c("Conv"):::w-->
+                    oc["C<sub>out</sub>"]    ---n("Norm"):::w-->
+                    on["C<sub>out</sub>"]    ---d("Dropout"):::d-->
+                    od["C<sub>out</sub>"]    ---a("Activation"):::d-->
+                    oa["C<sub>out</sub>"]    --- x("Attention"):::w
+                end
+                i["C<sub>inp</sub>"]:::i --- c
+                x --> ox["C<sub>out</sub>"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
 
     !!! warning "Padding is always `'same'`"
 
@@ -233,29 +279,62 @@ class ConvGroup(ModuleGroup):
     r"""
     Multiple convolution blocks stacked together
 
-    ```
-    Non-residual variant:
+    !!! tip "Diagram"
+        === "`residual=False`"
+            ```mermaid
+            flowchart LR
+                subgraph nb_blocks
+                    2("ConvBlock 1"):::w  --> 3["C"] ---
+                    4("ConvBlock 2"):::w  --> 5["C"] ---
+                    6("..."):::n      --> 7["C"] ---
+                    8("ConvBlock N"):::w
+                end
+                1["C [+S]"]:::i --- 2
+                8 ---> 9["C"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+        === "`residual=True`"
+            ```mermaid
+            flowchart LR
+                subgraph nb_blocks
+                    2("ConvBlock 1"):::w  --> 3["C"] ---
+                    4(("+")):::d      --> 5["C"] ---
+                    6("ConvBlock 2"):::w  --> 7["C"] ---
+                    8(("+")):::d      --> 9["C"] ---
+                    10("..."):::n     --> 11["C"] ---
+                    12("ConvBlock N"):::w --> 13["C"] ---
+                    14(("+")):::d
+                end
+                1["C [+S]"]:::i --- 2
+                1 --- 4
+                5 --- 8
+                11 --- 14
+                14 ---> 15["C"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
 
-    C[+S] -[cnda]-> ... -[cnda]-> C
-           \__________________/
-                  nb_conv
-
-    Residual variant:
-
-    .----------------.           .------------.
-    |                |           |            |
-    |                v           |            v
-    C[+S] -[cnda]-> (+) -> C ... C -[cnda]-> (+) -> C
-           \___________________________________/
-                           nb_conv
-    ```
-
-    !!! tip "The recurrent variant shares weights across blocks"
+    !!! note "The recurrent variant shares weights across blocks"
 
     !!! warning "The number of channels is preserved throughout"
 
     !!! warning "Padding is always `'same'`"
     """
+
+    @property
+    def inp_channels(self) -> int:
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self[-1].out_channels
 
     def __init__(
         self,
@@ -342,12 +421,48 @@ class ConvGroup(ModuleGroup):
 
 
 class DownGroup(nn.Sequential):
+    """
+    A downsampling step followed by a bunch of layers.
 
-    def __init__(self, module_down, module_block):
+    !!! tip "Diagram"
+        ```mermaid
+        flowchart LR
+            i["[C<sub>inp</sub>, W]"]:::i ---d("Down"):::w-->
+            1["[C<sub>mid</sub>, W/2]"] ---b("Block"):::w-->
+            o["[C<sub>out</sub>, W/2]"]:::o
+            classDef i fill:honeydew,stroke:lightgreen;
+            classDef o fill:mistyrose,stroke:lightpink;
+            classDef w fill:papayawhip,stroke:peachpuff;
+            classDef d fill:lightcyan,stroke:lightblue;
+            classDef n fill:none,stroke:none;
+        ```
+    """
+    @property
+    def inp_channels(self) -> int:
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self[-1].out_channels
+
+    def __init__(self, module_down: nn.Module, module_block: nn.Module):
+        """
+        Parameters
+        ----------
+        module_down : Module
+            A downsamlping layer, such as
+            [`DownConv`][cassetta.layers.DownConv],
+            [`DownPool`][cassetta.layers.DownPool], or
+            [`DownInterpol`][cassetta.layers.DownInterpol].
+        module_block : Module
+            A block of layers, that typically preserve the input shape,
+            such as [`ConvBlock`][cassetta.layers.ConvBlock] or
+            [`ConvGroup`][cassetta.layers.ConvGroup].
+        """
         super().__init__(module_down, module_block)
 
     @property
-    def return_indices(self):
+    def return_indices(self) -> bool:
         return getattr(self[0], 'return_indices', False)
 
     def forward(self, inp: Tensor) -> OneOrSeveral[Tensor]:
@@ -377,11 +492,49 @@ class DownConvGroup(DownGroup):
     r"""
     A downsampling step followed by a series of convolution blocks
 
-    ```
-    Cinp -[down]-> Cout -[cnda]-> ... -[cnda]-> Cout
-                         \__________________/
-                                nb_conv
-    ```
+    !!! tip "Diagram"
+        === "`residual=False`"
+            ```mermaid
+            flowchart LR
+                subgraph "<code>nb_conv</code>"
+                    2("ConvBlock 1"):::w  --> 3["[C<sub>out</sub>, W/2]"] ---
+                    4("ConvBlock 2"):::w  --> 5["[C<sub>out</sub>, W/2]"] ---
+                    6("..."):::n      --> 7["[C<sub>out</sub>, W/2]"] ---
+                    8("ConvBlock N"):::w
+                end
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Down"):::w-->
+                od["[C<sub>out</sub>, W/2]"]  ---2
+                8 ---> 9["[C<sub>out</sub>, W/2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+        === "`residual=True`"
+            ```mermaid
+            flowchart LR
+                subgraph "<code>nb_conv</code>"
+                    2("ConvBlock 1"):::w  --> 3["[C<sub>out</sub>, W/2]"] ---
+                    4(("+")):::d          --> 5["[C<sub>out</sub>, W/2]"] ---
+                    6("ConvBlock 2"):::w  --> 7["[C<sub>out</sub>, W/2]"] ---
+                    8(("+")):::d          --> 9["[C<sub>out</sub>, W/2]"] ---
+                    10("..."):::n         --> 11["[C<sub>out</sub>, W/2]"] ---
+                    12("ConvBlock N"):::w --> 13["[C<sub>out</sub>, W/2]"] ---
+                    14(("+")):::d
+                end
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Down"):::w-->
+                od["[C<sub>out</sub>, W/2]"]  ---2
+                od --- 4
+                5 --- 8
+                11 --- 14
+                14 ---> 15["[C<sub>out</sub>, W/2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
     """
 
     def __init__(
@@ -468,7 +621,7 @@ class DownConvGroup(DownGroup):
             ndim=ndim,
             inp_channels=inp_channels,
             out_channels=out_channels,
-            size=factor,
+            factor=factor,
             **down_options,
         )
         conv = ConvGroup(
@@ -492,8 +645,81 @@ class DownConvGroup(DownGroup):
 
 
 class UpGroup(nn.Sequential):
+    """
+    An upsampling step followed by a bunch of layers.
 
-    def __init__(self, module_up, module_block, skip=False):
+    !!! tip "Diagram"
+        === "No skip connections"
+            ```mermaid
+            flowchart LR
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Up"):::w-->
+                1["[C<sub>mid</sub>, W*2]"] ---b("Block"):::w-->
+                o["[C<sub>out</sub>, W*2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+        === "Connections with `skip=True`"
+            ```mermaid
+            flowchart LR
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Up"):::w-->
+                1["[C<sub>mid</sub>, W*2]"]
+                s["[C<sub>mid</sub>, W*2]"]:::i
+                1 & s --- c(("c")):::d --->
+                2["[C<sub>mid</sub>*2, W*2]"] ---b("Block"):::w-->
+                o["[C<sub>out</sub>, W*2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+        === "Connections with `skip=False`"
+            ```mermaid
+            flowchart LR
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Up"):::w-->
+                1["[C<sub>mid</sub>, W*2]"]
+                s["[C<sub>mid</sub>, W*2]"]:::i
+                1 & s --- c(("+")):::d --->
+                2["[C<sub>mid</sub>, W*2]"] ---b("Block"):::w-->
+                o["[C<sub>out</sub>, W*2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+
+    """
+
+    @property
+    def inp_channels(self) -> int:
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self[-1].out_channels
+
+    def __init__(self, module_up: nn.Module, module_block: nn.Module,
+                 skip: bool = False):
+        """
+        Parameters
+        ----------
+        module_up : Module
+            An upsampling layer, such as
+            [`UpConv`][cassetta.layers.UpConv],
+            [`UpPool`][cassetta.layers.UpPool], or
+            [`UpInterpol`][cassetta.layers.UpInterpol].
+        module_block : Module
+            A block of layers, that typically preserve the input shape,
+            such as [`ConvBlock`][cassetta.layers.ConvBlock] or
+            [`ConvGroup`][cassetta.layers.ConvGroup].
+        skip : bool
+            Whether to concatenate (`skip=True`) or add (`skip=False`)
+            eventual skip connections.
+        """
         super().__init__(module_up, module_block)
         self.skip = skip
 
@@ -511,10 +737,11 @@ class UpGroup(nn.Sequential):
         *skips : (B, skip_channels, *inp_size) tensor
             Skipped tensors
 
-        Keyword Parameters
-        ------------------
+        Other Parameters
+        ----------------
         indices : (B, out_tensor, *inp_size) tensor[long]
-            Unpool indices. Only if `mode='pool'`.
+            Unpool indices. Only if `module_up` is an
+            [`UpPool`][cassetta.layers.UpPool].
 
         Returns
         -------
@@ -538,11 +765,65 @@ class UpConvGroup(UpGroup):
     A upsampling step followed by a series of convolution blocks,
     potentially with a skip connection
 
-    ```
-    Cinp -[up]-> Cout -[cnda]-> ... -[cnda]-> Cout
-                       \__________________/
-                              nb_conv
-    ```
+    !!! tip "Diagram"
+        === "No skip connections"
+            ```mermaid
+            flowchart LR
+                subgraph "<code>nb_conv</code>"
+                    2("ConvBlock 1"):::w  --> 3["[C<sub>out</sub>, W*2]"] ---
+                    4("ConvBlock 2"):::w  --> 5["[C<sub>out</sub>, W*2]"] ---
+                    6("..."):::n      --> 7["[C<sub>out</sub>, W*2]"] ---
+                    8("ConvBlock N"):::w
+                end
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Up"):::w-->
+                1["[C<sub>out</sub>, W*2]"] --- 2
+                8 --->  o["[C<sub>out</sub>, W*2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+        === "Connections with `skip!=0`"
+            ```mermaid
+            flowchart LR
+                subgraph "<code>nb_conv</code>"
+                    2("ConvBlock 1"):::w  --> 3["[C<sub>out</sub>, W*2]"] ---
+                    4("ConvBlock 2"):::w  --> 5["[C<sub>out</sub>, W*2]"] ---
+                    6("..."):::n      --> 7["[C<sub>out</sub>, W*2]"] ---
+                    8("ConvBlock N"):::w
+                end
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Up"):::w-->
+                1["[C<sub>out</sub>, W*2]"]
+                s["[C<sub>out</sub>, W*2]"]:::i
+                1 & s --- c(("c")):::d ---> x["[C<sub>out</sub>*2, W*2]"] --- 2
+                8 ---> o["[C<sub>out</sub>, W*2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
+        === "Connections with `skip=0`"
+            ```mermaid
+            flowchart LR
+                subgraph "<code>nb_conv</code>"
+                    2("ConvBlock 1"):::w  --> 3["[C<sub>out</sub>, W*2]"] ---
+                    4("ConvBlock 2"):::w  --> 5["[C<sub>out</sub>, W*2]"] ---
+                    6("..."):::n      --> 7["[C<sub>out</sub>, W*2]"] ---
+                    8("ConvBlock N"):::w
+                end
+                i["[C<sub>inp</sub>, W]"]:::i ---d("Up"):::w-->
+                1["[C<sub>out</sub>, W*2]"]
+                s["[C<sub>out</sub>, W*2]"]:::i
+                1 & s --- c(("+")):::d ---> x["[C<sub>out</sub>, W*2]"] --- 2
+                8 ---> o["[C<sub>out</sub>, W*2]"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+            ```
     """
 
     def __init__(
@@ -628,7 +909,7 @@ class UpConvGroup(UpGroup):
             ndim=ndim,
             inp_channels=inp_channels,
             out_channels=out_channels,
-            size=factor,
+            factor=factor,
             **up_options,
         )
         conv = ConvGroup(

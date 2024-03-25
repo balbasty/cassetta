@@ -592,6 +592,14 @@ class SeparableConv(nn.Sequential):
     !!! warning "Padding mode is `'same'` by default"
     """
 
+    @property
+    def inp_channels(self) -> int:
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self) -> int:
+        return self[-1].out_channels
+
     def __init__(
         self,
         ndim: int,

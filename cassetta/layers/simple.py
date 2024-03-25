@@ -297,10 +297,10 @@ class ModuleGroup(nn.Sequential):
                 subgraph nb_blocks
                     2("Block 1"):::w  --> 3["C"] ---
                     4("Block 2"):::w  --> 5["C"] ---
-                    6("..."):::n    --> 7["C"] ---
+                    6("..."):::n      --> 7["C"] ---
                     8("Block N"):::w
                 end
-                1["C [+S]"]:::i --- 2
+                1["C"]:::i --- 2
                 8 ---> 9["C"]:::o
                 classDef i fill:honeydew,stroke:lightgreen;
                 classDef o fill:mistyrose,stroke:lightpink;
@@ -313,14 +313,14 @@ class ModuleGroup(nn.Sequential):
             flowchart LR
                 subgraph nb_blocks
                     2("Block 1"):::w  --> 3["C"] ---
-                    4(("+")):::d    --> 5["C"] ---
+                    4(("+")):::d      --> 5["C"] ---
                     6("Block 2"):::w  --> 7["C"] ---
-                    8(("+")):::d    --> 9["C"] ---
-                    10("..."):::n   --> 11["C"] ---
+                    8(("+")):::d      --> 9["C"] ---
+                    10("..."):::n     --> 11["C"] ---
                     12("Block N"):::w --> 13["C"] ---
                     14(("+")):::d
                 end
-                1["C [+S]"]:::i --- 2
+                1["C"]:::i --- 2
                 1 --- 4
                 5 --- 8
                 11 --- 14
@@ -330,6 +330,32 @@ class ModuleGroup(nn.Sequential):
                 classDef w fill:papayawhip,stroke:peachpuff;
                 classDef d fill:lightcyan,stroke:lightblue;
                 classDef n fill:none,stroke:none;
+            ```
+        === "`residual=True, skip!=0`"
+            ```mermaid
+            flowchart LR
+                subgraph nb_blocks
+                    2("Block 1"):::w  --> 3["C"] ---
+                    4(("+")):::d      --> 5["C"] ---
+                    6("Block 2"):::w  --> 7["C"] ---
+                    8(("+")):::d      --> 9["C"] ---
+                    10("..."):::n     --> 11["C"] ---
+                    12("Block N"):::w --> 13["C"] ---
+                    14(("+")):::d
+                end
+                1["C+S"]:::i --- 2
+                1 --- split(("s")):::d --> c["C"] & s["S"]
+                c --- 4
+                s --- void[" "]:::n
+                5 --- 8
+                11 --- 14
+                14 ---> 15["C"]:::o
+                classDef i fill:honeydew,stroke:lightgreen;
+                classDef o fill:mistyrose,stroke:lightpink;
+                classDef w fill:papayawhip,stroke:peachpuff;
+                classDef d fill:lightcyan,stroke:lightblue;
+                classDef n fill:none,stroke:none;
+                linkStyle 17 stroke:none;
             ```
 
     !!! note "The recurrent variant shares weights across blocks"

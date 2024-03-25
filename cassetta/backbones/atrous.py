@@ -45,6 +45,14 @@ class MeshNet(ModuleGroup):
             [arxiv:1612.00940](https://arxiv.org/abs/1612.00940)
     """
 
+    @property
+    def inp_channels(self):
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self):
+        return self[-1].out_channels
+
     def __init__(
         self,
         ndim: int,
@@ -155,6 +163,14 @@ class ATrousNet(ModuleGroup):
         Atrous Convolution, and Fully Connected CRFs."**
         _TPAMI_ (2017). [arxiv:1606.00915](https://arxiv.org/abs/1606.00915)
     """  # noqa: E501
+
+    @property
+    def inp_channels(self):
+        return self[0].inp_channels
+
+    @property
+    def out_channels(self):
+        return self[-1].out_channels
 
     def __init__(
         self,

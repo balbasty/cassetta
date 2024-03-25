@@ -89,6 +89,18 @@ class UNet(nn.Module):
         _MICCAI_ (2015). [arxiv:1505.04597](https://arxiv.org/abs/1505.04597)
     """  # noqa: E501
 
+    @property
+    def inp_channels(self):
+        return self.encoder.inp_channels
+
+    @property
+    def out_channels(self):
+        return self.decoder.out_channels
+
+    @property
+    def all_out_channels(self):
+        return self.decoder.all_out_channels
+
     def __init__(
         self,
         ndim: int,
