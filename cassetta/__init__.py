@@ -29,6 +29,8 @@ inference
     Tools to apply networks to unseed data.
 functional
     Lower-level functional utilities.
+io
+    Input/output.
 core
     Core utilities, mostly intended for internal use.
 """
@@ -42,6 +44,7 @@ from . import losses            # noqa: F401
 from . import layers            # noqa: F401
 from . import backbones         # noqa: F401
 from . import models            # noqa: F401
+from . import io                # noqa: F401
 
 from . import _version
 __version__ = _version.get_versions()['version']

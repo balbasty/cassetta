@@ -20,6 +20,9 @@ plugins:
     handlers:
       python:
         paths: [.]
+        import:
+        - https://pytorch.org/docs/stable/objects.inv
+        - https://numpy.org/doc/stable/objects.inv
         options:
           docstring_style: numpy
           docstring_section_style: spacy
@@ -76,6 +79,7 @@ nav:
   - cassetta.training: api/training.md
   - cassetta.inference: api/inference.md
   - cassetta.functional: api/functional.md
+  - cassetta.io: api/io.md
   - cassetta.core: api/core.md
 
 watch:

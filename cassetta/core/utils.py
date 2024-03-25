@@ -1,3 +1,13 @@
+"""
+A set of various utility functions.
+"""
+__all__ = [
+    'ensure_list',
+    'ensure_tuple',
+    'make_vector',
+    'torch_version',
+    'to_torch_dtype',
+]
 import numbers
 import numpy as np
 import torch
@@ -43,7 +53,9 @@ def ensure_tuple(
     **kwargs
 ) -> Tuple:
     """
-    Ensure that an object is a tuple. See `ensure_list`.
+    Ensure that an object is a tuple.
+
+    See [`ensure_list`][cassetta.core.utils.ensure_list].
     """
     return tuple(ensure_list(x, length, crop, **kwargs))
 
