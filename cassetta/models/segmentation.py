@@ -2,11 +2,12 @@ __all__ = ['SegNet']
 from torch import nn
 from typing import Optional, Union
 from cassetta.core.typing import ActivationType, OneOrSeveral
+from cassetta.io.modules import LoadableMixin
 from cassetta.layers import ConvBlock, make_activation
 from cassetta import backbones
 
 
-class SegNet(nn.Sequential):
+class SegNet(LoadableMixin, nn.Sequential):
     r"""
     A generic segmentation network that works with any backbone
 
@@ -34,6 +35,7 @@ class SegNet(nn.Sequential):
     def out_channels(self):
         return self[-1].out_channels
 
+    @LoadableMixin.save_args
     def __init__(
         self,
         ndim: int,

@@ -1,5 +1,10 @@
 __all__ = [
     'LoadableMixin',
+    'LoadableModule',
+    'LoadableModuleList',
+    'LoadableModuleDict',
+    'LoadableSequential',
+    'DynamicLoadableMixin',
     'load_module',
     'make_loadable',
 ]
@@ -13,7 +18,7 @@ from importlib import import_module
 
 def load_module(model_state: Union[str, IO]) -> nn.Module:
     """
-    Load and build a model/module form a file.
+    Load and build a model/module from a file.
 
     Parameters
     ----------
@@ -25,12 +30,13 @@ def load_module(model_state: Union[str, IO]) -> nn.Module:
     model : nn.Module
         Instantiated model
     """
-    return LoadableMixin.load_from(model_state)
+    return LoadableMixin.load(model_state)
 
 
 def make_loadable(klass):
     """
-    Create a loadable variant of an existing `nn.Module` subclass.
+    Create a loadable variant of an existing
+    [`nn.Module`][torch.nn.Module] subclass.
 
     Example
     -------
@@ -45,16 +51,21 @@ def make_loadable(klass):
     Parameters
     ----------
     klass : type
-        A `nn.Module` subclass
+        A [`nn.Module`][torch.nn.Module] subclass
 
     Returns
     -------
     loadable_klass : type
         A `(LoadableMixin, klass)` subclass.
     """
-    return type(
-        'Loadable' + klass.__name__, (LoadableMixin, klass), {}
-    )
+    class DynamicModule(DynamicLoadableMixin, klass):
+        @DynamicLoadableMixin.save_args
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+    DynamicModule.__name__ = 'Loadable' + klass.__name__
+    DynamicModule.__qualname__ = 'Loadable' + klass.__name__
+    return DynamicModule
 
 
 class LoadableMixin:
@@ -121,22 +132,24 @@ class LoadableMixin:
     @staticmethod
     def _nested_unserialize(obj, *, klass=None):
         if isinstance(obj, dict):
-            if '__LoadableMixing__' in obj:
+            if 'cassetta.LoadableState' in obj:
                 state = obj
                 if klass is None:
                     try:
                         klass = import_module(state['module'])
-                        strklass = list(state['class'].split('.'))
+                        strklass = list(state['qualname'].split('.'))
                         while strklass:
                             klass = getattr(klass, strklass.pop(0))
                     except Exception:
                         raise ImportError(
                             'Could not import type', state['class'],
                             'from module', state['module'])
+                if not isinstance(klass, LoadableMixin):
+                    klass = make_loadable(klass)
                 args = LoadableMixin._nested_unserialize(state['args'])
                 kwargs = LoadableMixin._nested_unserialize(state['kwargs'])
                 obj = klass(*args, **kwargs)
-                obj.load(state['state'])
+                obj.load_state_dict(state['state'])
                 return obj
             else:
                 return type(obj)({
@@ -163,9 +176,14 @@ class LoadableMixin:
         ```
         """
         def wrapper(self, *args, **kwargs):
-            self._args = cls._nested_serialize(args)
-            self._kwargs = cls._nested_serialize(kwargs)
-            return init(self, *args, **kwargs)
+            if not hasattr(self, '_args'):
+                # we only save parameters once, so that in the case where
+                # a Loadable module is subclassed, it is the parameters of
+                # the leaf class that are saved, not those passed to
+                # any of the parents' __init__
+                self._args = cls._nested_serialize(args)
+                self._kwargs = cls._nested_serialize(kwargs)
+            init(self, *args, **kwargs)
         return wrapper
 
     def serialize(self) -> dict:
@@ -178,10 +196,13 @@ class LoadableMixin:
         loadable_state : dict
             The module state, along with its constructor's parameters.
         """
+        klass = type(self)
+        if DynamicLoadableMixin in klass.__bases__:
+            klass = klass.__bases__[-1]
         return {
-            '__LoadableMixin__': LoadableMixin.__version__,
-            'module': type(self).__module__,
-            'qualname': type(self).__qualname__,
+            'cassetta.LoadableState': LoadableMixin.__version__,
+            'module': klass.__module__,
+            'qualname': klass.__qualname__,
             'args': getattr(self, '_args', tuple()),
             'kwargs': getattr(self, '_kwargs', dict()),
             'state': self.state_dict(),
@@ -204,9 +225,9 @@ class LoadableMixin:
         torch.save(self.serialize(), path)
 
     @classmethod
-    def load_from(cls, loadable_state: Union[str, IO]) -> nn.Module:
+    def load(cls, loadable_state: Union[str, IO]) -> nn.Module:
         """
-        Load and build a model/module form a file.
+        Load and build a model/module from a file.
 
         Parameters
         ----------
@@ -222,3 +243,43 @@ class LoadableMixin:
             loadable_state = torch.load(loadable_state)
         hint = cls if cls is not LoadableMixin else None
         return cls._nested_unserialize(loadable_state, klass=hint)
+
+
+class DynamicLoadableMixin(LoadableMixin):
+    """
+    A mixin for non-static types generated by
+    [`make_loadable`](cassetta.io.modules.make_loadable)
+    """
+    pass
+
+
+class LoadableModule(LoadableMixin, nn.Module):
+    """A Loadable variant of [`nn.Module`][torch.nn.Module]"""
+
+    @LoadableMixin.save_args
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class LoadableSequential(LoadableMixin, nn.Sequential):
+    """A Loadable variant of [`nn.Sequential`][torch.nn.Sequential]"""
+
+    @LoadableMixin.save_args
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class LoadableModuleList(LoadableMixin, nn.ModuleList):
+    """A Loadable variant of [`nn.ModuleList`][torch.nn.ModuleList]"""
+
+    @LoadableMixin.save_args
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
+    """A Loadable variant of [`nn.ModuleDict`][torch.nn.ModuleDict]"""
+
+    @LoadableMixin.save_args
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

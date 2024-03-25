@@ -2,11 +2,12 @@ __all__ = ['ElasticRegNet']
 from torch import nn
 from typing import Optional, Union
 from cassetta.core.typing import ActivationType, OneOrSeveral
+from cassetta.io.modules import LoadableMixin
 from cassetta.layers import ConvBlock, make_activation, FlowPull, FlowExp, Cat
 from cassetta import backbones
 
 
-class ElasticRegNet(nn.Sequential):
+class ElasticRegNet(LoadableMixin, nn.Sequential):
     r"""
     A generic pairwise nonlinear registration network that works with
     any backbone
@@ -66,6 +67,7 @@ class ElasticRegNet(nn.Sequential):
     def out_channels(self):
         return self[-1].out_channels
 
+    @LoadableMixin.save_args
     def __init__(
         self,
         ndim: int,
@@ -78,7 +80,6 @@ class ElasticRegNet(nn.Sequential):
         opt_backbone: Optional[dict] = None,
     ):
         """
-
         Parameters
         ----------
         ndim : {2, 3}
