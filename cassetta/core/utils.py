@@ -7,6 +7,7 @@ __all__ = [
     'make_vector',
     'torch_version',
     'to_torch_dtype',
+    'import_submodules',
 ]
 import numbers
 import numpy as np
@@ -14,6 +15,7 @@ import torch
 from torch import Tensor
 from types import GeneratorType as generator
 from typing import List, Tuple, Any, Optional
+from importlib import import_module
 from .typing import DeviceType
 
 
@@ -271,3 +273,41 @@ def to_torch_dtype(dtype, upcast=False, trunc=False):
         return _dtype_trunc2torch[dtype]
 
     raise TypeError('Unknown type:', dtype)
+
+
+def import_submodules(submodules, module, all=None, import_into=False):
+    """
+    Pre-import submodules into parent module, so that we can do
+    ```python
+    import pck
+    x = pck.submodule.subsubmodule.function(3)
+    ```
+    instead of
+    ```python
+    import pck.submodule.subsubmodule
+    x = pck.submodule.subsubmodule.function(3)
+    ```
+
+    Parameters
+    ----------
+    submodules : list[str]
+        Names of submodules to import
+    module : str
+        Path to parent module: `__name__`.
+    all : list[str]
+        Reference to the parent module's `__all__`, that then gets populated
+    import_into : bool
+        Also import all objects from the submodule into the parent module
+    """
+    parent_name = module
+    parent = import_module(parent_name)
+    for child_name in submodules:
+        child = import_module('.' + child_name, parent_name)
+        setattr(parent, child_name, child)
+        if all is not None:
+            all += [child_name]
+        if import_into:
+            for child_obj_name in child.__all__:
+                setattr(parent, child_obj_name, getattr(child, child_obj_name))
+                if all is not None:
+                    all += [child_obj_name]

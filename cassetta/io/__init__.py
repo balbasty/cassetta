@@ -11,7 +11,11 @@ Modules
 modules
     Advanced loading/unloading of modules & models
 """
+__all__ = []
 
-from . import modules       # noqa: F401
+from cassetta.core.utils import import_submodules
 
-from .modules import *      # noqa: F401, F403
+import_submodules([
+    'modules',
+    'utils',
+], __name__, __all__, True)

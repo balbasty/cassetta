@@ -11,10 +11,14 @@ __all__ = [
     'NormType',
     'DropoutType',
     'AttentionType',
+    'ModelType',
+    'LossType',
+    'OptimType',
 ]
 import torch
 import numpy as np
 from torch.nn import Module
+from torch.optim import Optimizer
 from bounds.types import BoundLike as BoundType
 from typing import (
     Union, Optional, Sequence, Literal, Type, TypeVar
@@ -126,4 +130,40 @@ one of their string aliases:
   <li><code>"sixth"</code></li>
   <li><code>"seventh"</code></li>
 </ol>
+"""
+
+ModelType = Union[str, Module, Type[Module]]
+"""
+A model can be:
+
+- the name of a cassetta model, such as `"SegNet"`;
+- the fully qualified path to a model, such as
+  `"cassetta.models.ElasticRegNet"`, or `"monai.networks.nets.ResNet"`;
+- a [`nn.Module`][torch.nn.Module] subclass, such as
+  [`SegNet`][cassetta.models.SegNet];
+- an already instantiated [`nn.Module`][torch.nn.Module], such as
+  [`SegNet(3, 1, 5)`][cassetta.models.SegNet].
+"""
+
+LossType = Union[str, Module, Type[Module]]
+"""
+A loss can be:
+
+- the name of a cassetta loss, such as `"DiceLoss"`;
+- the fully qualified path to a model, such as
+  `"cassetta.losses.DiceLoss"`, or `"monai.losses.GeneralizedDiceLoss"`;
+- a [`nn.Module`][torch.nn.Module] subclass, such as
+  [`DiceLoss`][cassetta.losses.DiceLoss];
+- an already instantiated [`nn.Module`][torch.nn.Module], such as
+  [`DiceLoss()`][cassetta.losses.DiceLoss].
+"""
+
+OptimType = Union[str, Type[Optimizer]]
+"""
+A model can be:
+
+- the name of a torch optimizer, such as `"Adam"`;
+- the fully qualified path to a model, such as `"torch.optim.Adam"`;
+- a [`Optimizer`][torch.optim.Optimizer] subclass, such as
+  [`Adam`][torch.optim.Adam].
 """

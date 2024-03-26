@@ -23,11 +23,11 @@ unet
 atrous
     Networks that use dilated convolutions
 """
+__all__ = []
+from cassetta.core.utils import import_submodules
 
-from . import fcn       # noqa: F401
-from . import unet      # noqa: F401
-from . import atrous    # noqa: F401
-
-from .fcn import *      # noqa: F401, F403
-from .unet import *     # noqa: F401, F403
-from .atrous import *   # noqa: F401, F403
+import_submodules([
+    'fcn',
+    'unet',
+    'atrous',
+], __name__, __all__, True)

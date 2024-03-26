@@ -25,25 +25,18 @@ simple
 updown
     Different ways to upsample and downsample
 """
+__all__ = []
+from cassetta.core.utils import import_submodules
 
-from . import activations   # noqa: F401
-from . import attention     # noqa: F401
-from . import conv          # noqa: F401
-from . import convblocks    # noqa: F401
-from . import dropout       # noqa: F401
-from . import interpol      # noqa: F401
-from . import linear        # noqa: F401
-from . import norm          # noqa: F401
-from . import simple        # noqa: F401
-from . import updown        # noqa: F401
-
-from .activations import *  # noqa: F401, F403
-from .attention import *    # noqa: F401, F403
-from .conv import *         # noqa: F401, F403
-from .convblocks import *   # noqa: F401, F403
-from .dropout import *      # noqa: F401, F403
-from .interpol import *     # noqa: F401, F403
-from .linear import *       # noqa: F401, F403
-from .norm import *         # noqa: F401, F403
-from .simple import *       # noqa: F401, F403
-from .updown import *       # noqa: F401, F403
+import_submodules([
+    'activations',
+    'attention',
+    'conv',
+    'convblocks',
+    'dropout',
+    'interpol',
+    'linear',
+    'norm',
+    'simple',
+    'updown',
+], __name__, __all__, True)

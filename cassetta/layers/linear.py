@@ -1,3 +1,7 @@
+__all__ = [
+    'Linear',
+    'LazyLinear',
+]
 import torch
 import math
 from torch import nn

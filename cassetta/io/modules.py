@@ -13,7 +13,7 @@ from torch import nn
 from typing import Union, IO
 from warnings import warn
 from inspect import signature
-from importlib import import_module
+from .utils import import_qualname
 
 
 def load_module(model_state: Union[str, IO]) -> nn.Module:
@@ -136,13 +136,13 @@ class LoadableMixin:
                 state = obj
                 if klass is None:
                     try:
-                        klass = import_module(state['module'])
-                        strklass = list(state['qualname'].split('.'))
-                        while strklass:
-                            klass = getattr(klass, strklass.pop(0))
+                        klass = import_qualname(
+                            state['module'],
+                            state['qualname'],
+                        )
                     except Exception:
                         raise ImportError(
-                            'Could not import type', state['class'],
+                            'Could not import type', state['qualname'],
                             'from module', state['module'])
                 if not isinstance(klass, LoadableMixin):
                     klass = make_loadable(klass)

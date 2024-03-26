@@ -66,15 +66,14 @@ r"""
 | [`movedim`][cassetta.functional.jit.movedim]                      | `movedim(tensor, src, dst)`                           |
 +-------------------------------------------------------------------+-------------------------------------------------------+
 """  # noqa: E501
+__all__ = []
 
-from .indexing import *     # noqa: F401, F403
-from .math import *         # noqa: F401, F403
-from .meshgrid import *     # noqa: F401, F403
-from .python import *       # noqa: F401, F403
-from .tensors import *      # noqa: F401, F403
+from cassetta.core.utils import import_submodules
 
-from . import indexing   # noqa: F401 - indexing utilities
-from . import math       # noqa: F401 - math helpers (backward compatibility)
-from . import meshgrid   # noqa: F401 - backward compatible meshgrid
-from . import python     # noqa: F401 - torchscript functions for builtins
-from . import tensors    # noqa: F401 - torchscript functions for tensors
+import_submodules([
+    'indexing',         # indexing utilities
+    'math',             # math helpers (backward compatibility)
+    'meshgrid',         # backward compatible meshgrid
+    'python',           # torchscript functions for builtins
+    'tensors',          # torchscript functions for tensors
+], __name__, __all__, True)
