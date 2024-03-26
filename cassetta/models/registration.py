@@ -12,6 +12,8 @@ class ElasticRegNet(LoadableMixin, nn.Sequential):
     A generic pairwise nonlinear registration network that works with
     any backbone
 
+    !!! bug "Not tested yet -- do not use"
+
     !!! tip "Diagram"
         === "Prediction"
             ```mermaid

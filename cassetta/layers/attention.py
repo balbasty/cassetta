@@ -615,6 +615,8 @@ class BlockAttention(nn.Sequential):
 
 class DotProductAttention(nn.Module):
     """
+    !!! bug "Under construction -- do not use"
+
     !!! quote "References"
 
         1.  Vaswani, Ashish, et al. **"Attention Is All You Need."
@@ -667,6 +669,8 @@ class DotProductAttention(nn.Module):
 
 class MultiHeadAttention(nn.Module):
     """
+    !!! bug "Under construction -- do not use"
+
     !!! quote "References"
 
         1.  Vaswani, Ashish, et al. **"Attention Is All You Need."
