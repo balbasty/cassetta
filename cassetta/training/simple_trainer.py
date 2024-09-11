@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from cassetta.training.loggers import Logger
 
 
-class Trainer:
+class SimpleSupervisedTrainer:
     """
     A generic training loop that works with any model.
 
