@@ -5,11 +5,14 @@ __all__ = [
     'LoadableModuleDict',
     'LoadableSequential',
     'DynamicLoadableMixin',
+    'StateMixin'
     'load_module',
     'make_loadable',
 ]
 import torch
 from torch import nn
+import dataclasses
+from pathlib import Path
 from typing import Union, IO
 from warnings import warn
 from inspect import signature
@@ -283,3 +286,23 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
     @LoadableMixin.save_args
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+class StateMixin:
+    """Add serialization options for dataclasses"""
+
+    def state_dict(self):
+        return dataclasses.asdict(self)
+
+    def load_state_dict(self, state):
+        if isinstance(state, (str, Path)):
+            state = torch.load(state)
+        for key, value in state.items():
+            setattr(self, key, value)
+        return self
+
+    @classmethod
+    def from_state_dict(cls, state):
+        if isinstance(state, (str, Path)):
+            state = torch.load(state)
+        return cls(**state)
