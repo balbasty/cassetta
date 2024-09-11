@@ -1,12 +1,38 @@
-__all__ = ['Trainer']
+__all__ = [
+    'SimpleSupervisedTrainerInfo',
+    'Counter',
+    'Trainer',
+    ]
 import torch
 from torch import nn
 from typing import Optional
 from torch.utils.data import DataLoader
+from cassetta.io.modules import StateMixin
 from cassetta.training.loggers import Logger
+from dataclasses import dataclass
 
 
-class SimpleSupervisedTrainer:
+@dataclass
+class SimpleSupervisedTrainerInfo(StateMixin):
+    """A structure that stores the training parameters."""
+    nb_epochs: int = 100         # Maximum number of epochs
+    model_exp_name: str = '.'    # Dir for model experiment name
+    model_version: int = 1       # Version of model experiment
+    save_every: int = 1          # Save model every N epochs
+    save_last: int = 1           # Save models from the last N epochs
+    save_top: int = 1            # Save the top N models (based on val loss)
+    show_losses: bool = True     # Verbosity: print loss components
+    show_metrics: bool = False   # Verbosity: print metrics
+
+
+@dataclass
+class Counter(StateMixin):
+    """A structure that keeps track of steps and epochs"""
+    epoch = 0               # Current epoch
+    step = 0                # Current step (within current epoch)
+
+
+class SimpleSupervisedTrainer(torch.nn.Module):
     """
     A generic training loop that works with any model.
 
@@ -27,7 +53,6 @@ class SimpleSupervisedTrainer:
     """
     def __init__(
         self,
-        model_dir: str,
         model: nn.Sequential,
         train_loader: DataLoader,
         val_loader: DataLoader,
@@ -35,6 +60,7 @@ class SimpleSupervisedTrainer:
         optimizer: torch.optim,
         device: Optional[str] = 'cuda'
     ):
+        super(SimpleSupervisedTrainer, self).__init__()
         """
         A generic training loop that works with any model.
 
@@ -53,25 +79,26 @@ class SimpleSupervisedTrainer:
         device : str
             Device to run the training on. ('cpu' or 'cuda').
         """
-        self.model_dir = model_dir
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.criterion = criterion.to(device)
         self.optimizer = optimizer
         self.device = device
+
+        self.counter = Counter()
+        self.trainer = SimpleSupervisedTrainerInfo()
+
         # Initialize logger
         self.logger = Logger(
-            model_dir=self.model_dir,
+            model_dir=(
+                f'{self.trainer.model_exp_name}/'
+                f'version_{self.trainer.model_version}'),
             model=self.model,
             train_loader=self.train_loader
         )
-        # Initializing states of tracking attributes
-        self.current_epoch = 0
-        self.current_step = 0
-        self.best_val_loss = 1
 
-    def train(self, num_epochs: int = 100):
+    def train(self):
         """
         Train the model over num_epochs epochs.
 
@@ -85,17 +112,18 @@ class SimpleSupervisedTrainer:
         # Log model's graph
         self.logger.log_model_graph()
         # Iterate across epochs
-        for epoch in range(num_epochs):
+        for epoch in range(self.trainer.nb_epochs):
             train_loss = self._train_one_epoch()
             val_loss = self._validate()
-            print(f"Epoch [{epoch+1}/{num_epochs}], "
+            print(f"Epoch [{epoch+1}/{self.trainer.nb_epochs}], "
                   f"Train Loss: {train_loss:.4f}, "
                   f"Validation Loss: {val_loss:.4f}")
-            if self.current_epoch % 5 == 0:
+            if self.counter.epoch % self.trainer.save_every == 0:
                 # Log parameter and gradient frequency distributions
-                self.logger.log_parameter_histograms(self.current_epoch)
-            # Increment epoch
-            self.current_epoch += 1
+                self.logger.log_parameter_histograms(self.counter.epoch)
+            # Update counter
+            self.counter.epoch += 1
+            self.counter.step = 0
 
     def _train_one_epoch(self):
         """
@@ -136,10 +164,9 @@ class SimpleSupervisedTrainer:
                     phase='intermediate_train',
                     # calling epoch the current step so we can track loss
                     # within training loop
-                    epoch=self.current_step,
+                    epoch=self.counter.step,
                     metrics={'loss': loss.item()})
-
-            self.current_step += 1  # Increment step
+            self.counter.step += 1  # Increment step
 
         # Calculate and log average metrics over epoch
         epoch_train_loss /= len(self.train_loader)
