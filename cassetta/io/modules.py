@@ -5,7 +5,7 @@ __all__ = [
     'LoadableModuleDict',
     'LoadableSequential',
     'DynamicLoadableMixin',
-    'StateMixin'
+    'StateMixin',
     'load_module',
     'make_loadable',
 ]
