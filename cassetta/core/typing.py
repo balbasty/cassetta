@@ -5,7 +5,6 @@ __all__ = [
     'OneOrSeveral',
     'DeviceType',
     'DataType',
-    'BoundType',
     'InterpolationType',
     'ActivationType',
     'NormType',
@@ -19,7 +18,6 @@ import torch
 import numpy as np
 from torch.nn import Module
 from torch.optim import Optimizer
-from bounds.types import BoundLike as BoundType
 from typing import (
     Union, Optional, Sequence, Literal, Type, TypeVar
 )
