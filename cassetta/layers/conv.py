@@ -10,10 +10,30 @@ from torch import nn
 from torch import Tensor
 from torch.nn import functional as F
 from torch.nn.modules.lazy import LazyModuleMixin
-from bounds import all_bounds, pad, to_enum, BoundType as BoundEnum
+from bounds import pad, to_enum, BoundType as BoundEnum
 from typing import Optional, Union, Literal, Tuple, List, Callable
 from cassetta.core.typing import OneOrSeveral, DeviceType, BoundType
 from cassetta.core.utils import ensure_tuple
+
+# define all possible bounds here (should really be in torch-bounds)
+from bounds.types import (
+    bounds_fourier,
+    bounds_scipy,
+    bounds_torch,
+    bounds_torch_pad,
+    bounds_other,
+    enum_bounds,
+    int_bounds,
+)
+all_bounds = (
+    bounds_fourier +
+    bounds_scipy +
+    bounds_torch +
+    bounds_torch_pad +
+    bounds_other +
+    enum_bounds +
+    int_bounds
+)
 
 
 def make_conv(
