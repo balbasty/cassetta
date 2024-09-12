@@ -25,14 +25,13 @@ jobs:
             pytorch-version: "2.4"  # most recent version
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/test
+        if: inputs.tag == ''
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.tag }}
         if: inputs.tag != ''
+      - uses: ./.github/actions/test
         with:
           python-version: ${{ matrix.python-version }}
           pytorch-version: ${{ matrix.pytorch-version }}
           tag: ${{ inputs.tag }}
-      - uses: ./.github/actions/test
-        if: inputs.tag == ''
-        with:
-          python-version: ${{ matrix.python-version }}
-          pytorch-version: ${{ matrix.pytorch-version }}
