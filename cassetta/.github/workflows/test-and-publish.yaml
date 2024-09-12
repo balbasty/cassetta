@@ -1,0 +1,78 @@
+name: Test package and publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Commit / Branch / Tag / SHA to checkout'
+        required: false
+        default: ''
+      test:
+        description: 'Run tests'
+        required: false
+        default: true
+        type: boolean
+      publish:
+        description: 'Publish'
+        required: false
+        default: 'none'
+        type: choice
+        options:
+          - 'none'
+          - 'pypi'
+          - 'test'
+          - 'test+pypi'
+      python-version:
+        description: 'Python version'
+        required: false
+        default: '3.8'
+
+jobs:
+  test:
+    if: inputs.test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python-version: "3.8"   # oldest supported version
+            pytorch-version: "2.0"  # oldest supported version
+          - python-version: "3.12"  # most recent version
+            pytorch-version: "2.4"  # most recent version
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/test
+        with:
+          python-version: ${{ matrix.python-version }}
+          pytorch-version: ${{ matrix.pytorch-version }}
+          tag: ${{ inputs.tag }}
+
+  publish:
+    if: inputs.test && inputs.publish != 'none'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/pypi
+        if: |
+          contains(inputs.publish, 'pypi') || contains(inputs.publish, 'test')
+        with:
+          python-version: ${{ inputs.python-version }}
+          publish: ${{ inputs.publish }}
+          tag: ${{ inputs.tag }}
+          pypi-password: ${{ secrets.PYPI_TOKEN }}
+          test-password: ${{ secrets.TEST_PYPI_TOKEN }}
+
+  publish-only:
+    if: (!inputs.test) && inputs.publish != 'none'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/pypi
+        if: |
+          contains(inputs.publish, 'pypi') || contains(inputs.publish, 'test')
+        with:
+          python-version: ${{ inputs.python-version }}
+          publish: ${{ inputs.publish }}
+          tag: ${{ inputs.tag }}
+          pypi-password: ${{ secrets.PYPI_TOKEN }}
+          test-password: ${{ secrets.TEST_PYPI_TOKEN }}

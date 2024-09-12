@@ -1,0 +1,32 @@
+name: Test package
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Commit / Branch / Tag / SHA to checkout'
+        required: false
+        default: ''
+      python-version:
+        description: 'Python version'
+        required: false
+        default: '3.8'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python-version: "3.8"   # oldest supported version
+            pytorch-version: "2.0"  # oldest supported version
+          - python-version: "3.12"  # most recent version
+            pytorch-version: "2.4"  # most recent version
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/test
+        with:
+          python-version: ${{ matrix.python-version }}
+          pytorch-version: ${{ matrix.pytorch-version }}
+          tag: ${{ inputs.tag }}
