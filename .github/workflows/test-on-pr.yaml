@@ -43,10 +43,13 @@ jobs:
           PYTORCH_VERSION: ${{ inputs.pytorch-version }}
         run: |
           mamba install pytorch=${PYTORCH_VERSION} pytest
+      - shell: bash -el {0}
+        run: tree .
       - name: Test with pytest
         shell: bash -el {0}
         run: |
           pip install .
+          python -c "import cassetta.tests.test_tests; print('success', cassetta.tests.test_tests)"
           pytest --pyargs cassetta
 
   test-via-subaction:
@@ -65,8 +68,6 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
         if: inputs.tag != ''
-      - shell: bash -el {0}
-        run: tree .
       - uses: ./.github/actions/test
         with:
           python-version: ${{ matrix.python-version }}
