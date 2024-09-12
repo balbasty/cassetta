@@ -47,7 +47,7 @@ jobs:
         shell: bash -el {0}
         run: |
           pip install .
-          pytest --pyargs dummy
+          pytest --pyargs cassetta
 
   test-via-subaction:
     runs-on: ubuntu-latest
