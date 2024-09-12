@@ -65,6 +65,8 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
         if: inputs.tag != ''
+      - shell: bash -el {0}
+        run: tree .
       - uses: ./.github/actions/test
         with:
           python-version: ${{ matrix.python-version }}
