@@ -8,6 +8,7 @@ from typing import Union, Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from cassetta.io.utils import import_fullname, import_qualname
 from cassetta import models, losses
+from cassetta.io.modules import LoadableModuleDict
 
 
 @dataclass
@@ -54,7 +55,7 @@ class Trainer(nn.Module):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.models = nn.ModuleDict()
+        self.models = LoadableModuleDict()
         self.optimizers = {}
         self.trainer_state = TrainerState()
 
