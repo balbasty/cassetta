@@ -25,6 +25,8 @@ jobs:
             pytorch-version: "2.4"  # most recent version
     steps:
       - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.tag }}
       - uses: ./.github/actions/test
         with:
           python-version: ${{ matrix.python-version }}
