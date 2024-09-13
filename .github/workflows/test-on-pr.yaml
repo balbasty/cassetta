@@ -14,7 +14,7 @@ on:
         default: '3.8'
 
 jobs:
-  test-harcoded:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,49 +25,8 @@ jobs:
             pytorch-version: "2.4"  # most recent version
     steps:
       - uses: actions/checkout@v3
-        if: inputs.tag == ''
-      - uses: actions/checkout@v3
         with:
           ref: ${{ inputs.tag }}
-        if: inputs.tag != ''
-      - uses: conda-incubator/setup-miniconda@v3
-        with:
-          miniforge-version: latest
-          mamba-version: "*"
-          python-version: ${{ inputs.python-version }}
-          channels: conda-forge,pytorch
-          activate-environment: test-env
-      - name: Install dependencies
-        shell: bash -el {0}
-        env:
-          PYTORCH_VERSION: ${{ inputs.pytorch-version }}
-        run: |
-          mamba install pytorch=${PYTORCH_VERSION} pytest
-      - shell: bash -el {0}
-        run: tree .
-      - name: Test with pytest
-        shell: bash -el {0}
-        run: |
-          pip install .
-          python -c "import cassetta.tests.test_tests; print('success', cassetta.tests.test_tests)"
-          pytest --pyargs cassetta
-
-  test-via-subaction:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - python-version: "3.8"   # oldest supported version
-            pytorch-version: "2.0"  # oldest supported version
-          - python-version: "3.12"  # most recent version
-            pytorch-version: "2.4"  # most recent version
-    steps:
-      - uses: actions/checkout@v3
-        if: inputs.tag == ''
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.tag }}
-        if: inputs.tag != ''
       - uses: ./.github/actions/test
         with:
           python-version: ${{ matrix.python-version }}

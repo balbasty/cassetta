@@ -17,9 +17,6 @@ runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v3
-      if: inputs.tag == ''
-    - uses: actions/checkout@v3
-      if: inputs.tag != ''
       with:
         ref: ${{ inputs.tag }}
     - uses: conda-incubator/setup-miniconda@v3
@@ -37,6 +34,8 @@ runs:
         mamba install pytorch=${PYTORCH_VERSION} pytest
     - name: Test with pytest
       shell: bash -el {0}
+      # !!! run pytest through python, not with the `pytest` command
+      # !!! otherwise it does not find the module (not sure why...)
       run: |
         pip install .
-        pytest --pyargs cassetta
+        python -m pytest --pyargs cassetta
