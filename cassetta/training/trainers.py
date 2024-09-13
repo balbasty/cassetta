@@ -16,6 +16,7 @@ class TrainerState:
     Stores the state of the trainer, including metrics, losses, epoch, and
     step.
     """
+
     all_losses: Dict[str, Any] = None
     all_metrics: Dict[str, Any] = None
     current_losses: Dict[str, Any] = None
@@ -57,7 +58,9 @@ class Trainer(nn.Module):
         self.optimizers = {}
         self.trainer_state = TrainerState()
 
-    def register_model(self, name, model: nn.Module, optimizer: torch.optim.Optimizer = None):
+    def register_model(
+        self, name, model: nn.Module, optimizer: torch.optim.Optimizer = None
+    ):
         """
         Register a model to the Trainer, along with its optimizer.
         """
@@ -67,14 +70,24 @@ class Trainer(nn.Module):
 
     def save(self, file_path):
         """
-        Save the Trainer state, including all models, optimizers, and trainer state.
+        Save the Trainer state, including all models, optimizers, and trainer
+        state.
         """
         checkpoint = {
-            'models': {name: model.state_dict() for name, model in self.models.items()},
-            'optimizers': {name: optimizer.state_dict() for name, optimizer in self.optimizers.items()},
-            'trainer_state': self.trainer_state.__dict__,
-            'model_classes': {name: model.__class__ for name, model in self.models.items()},
-            'model_init_args': {name: model._init_args for name, model in self.models.items()}  # Save model initialization arguments
+            "models": {
+                name: model.state_dict() for name, model in self.models.items()
+                },
+            "optimizers": {
+                name: optimizer.state_dict()
+                for name, optimizer in self.optimizers.items()
+            },
+            "trainer_state": self.trainer_state.__dict__,
+            "model_classes": {
+                name: model.__class__ for name, model in self.models.items()
+            },
+            "model_init_args": {
+                name: model._init_args for name, model in self.models.items()
+            },  # Save model initialization arguments
         }
         torch.save(checkpoint, file_path)
         print(f"Trainer state saved to {file_path}")
@@ -90,35 +103,37 @@ class Trainer(nn.Module):
         checkpoint = torch.load(file_path)
 
         # Re-create models from saved classes and their init args
-        for name, model_class in checkpoint['model_classes'].items():
+        for name, model_class in checkpoint["model_classes"].items():
             # Load model initialization arguments
-            init_args = checkpoint['model_init_args'][name]
+            init_args = checkpoint["model_init_args"][name]
 
             if name not in self.models:
                 # Dynamically create the model using the saved init args
                 model = model_class(**init_args)
-                model.load_state_dict(checkpoint['models'][name])
+                model.load_state_dict(checkpoint["models"][name])
                 self.models[name] = model
             else:
-                self.models[name].load_state_dict(checkpoint['models'][name])
+                self.models[name].load_state_dict(checkpoint["models"][name])
 
             if name not in self.optimizers:
                 # Adjust optimizer as needed
                 optimizer = torch.optim.Adam(self.models[name].parameters())
-                optimizer.load_state_dict(checkpoint['optimizers'][name])
+                optimizer.load_state_dict(checkpoint["optimizers"][name])
                 self.optimizers[name] = optimizer
             else:
                 self.optimizers[name].load_state_dict(
-                    checkpoint['optimizers'][name])
+                    checkpoint["optimizers"][name]
+                    )
 
         # Restore trainer state
-        self.trainer_state.__dict__.update(checkpoint['trainer_state'])
+        self.trainer_state.__dict__.update(checkpoint["trainer_state"])
         print(f"Trainer state loaded from {file_path}")
         return self
 
+
 class BasicTrainer(Trainer):
 
-    @Trainer.save_args
+    # @Trainer.save_args
     def __init__(
         self,
         model: Union[str, nn.Module],
