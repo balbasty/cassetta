@@ -182,7 +182,7 @@ class LoadableMixin:
                 if klass is None:
                     try:
                         klass = import_qualname(
-                            sdddtate["module"],
+                            state["module"],
                             state["qualname"],
                         )
                     except Exception:
