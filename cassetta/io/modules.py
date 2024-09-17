@@ -11,6 +11,7 @@ __all__ = [
     "validate_loadable_modules",
 ]
 import yaml
+import json
 import torch
 import dataclasses
 from torch import nn
@@ -301,11 +302,49 @@ class LoadableMixin:
 
 class StateMixin:
     """
-    A mixin to handle saving and loading the state of an object to/from a
-    dictionary or a YAML file.
+    A mixin to handle saving and loading the state of an object in multiple
+    file formats {`.yaml`, `.json`, `.pt`}.
+
+    This mixin is designed to be used with simple data containers (e.g.,
+    classes decorated with `@dataclass`) where the state consists of basic
+    attributes that can be serialized into dictionaries.
+
+    Notes
+    -----
+    - Classes that inherit from `StateMixin` are intended to be data containers
+      and must be decorated with `@dataclass` to ensure their fields can be
+      serialized and deserialized correctly.
+    - User must instantiate correct class (or subclas) before loading
+      the state.
+    - This mixin does not save the type of the object in the file.
+
+    Supported File Formats
+    ----------------------
+    - `.yaml`: YAML
+    - `.json`: JSON
+    - PyTorch's default file format
+
+    Example
+    -------
+    ```python
+    # Make data container subclass
+    @dataclass
+    class TrainerState(StateMixin):
+        epochs : int = 25
+
+    # Build state data container object
+    state = TrainerState()
+
+    # Save state data container object
+    state.save_state_dict('path/to/state.pth')
+
+    # Load state
+    loaded_state = TrainerState()
+    loaded_state.load('trainer_state.pth)
+    ```
     """
 
-    def state_dict(self) -> dict:
+    def serialize(self) -> dict:
         """
         Return the state of the object as a dictionary.
 
@@ -318,12 +357,12 @@ class StateMixin:
 
     def load_state_dict(self, state: Union[dict, str, Path]) -> "StateMixin":
         """
-        Load the state of the object from a dictionary or a YAML file.
+        Load the state of the object from a dictionary or file.
 
         Parameters
         ----------
         state : dict or str or Path
-            The state dictionary or path to the YAML file containing the state.
+            The state dictionary or path to the file containing the state.
 
         Returns
         -------
@@ -331,8 +370,15 @@ class StateMixin:
             The instance with updated state.
         """
         if isinstance(state, (str, Path)):
-            with open(state, "r") as f:
-                state = yaml.load(f, Loader=yaml.Loader)  # Use full loader
+            path = Path(state)
+            if path.suffix == '.yaml':
+                with open(state, "r") as f:
+                    state = yaml.load(f, Loader=yaml.Loader)
+            elif path.suffix == '.json':
+                with open(state, 'r') as f:
+                    state = json.load(f)
+            else:
+                state = torch.load(state)
         for key, value in state.items():
             setattr(self, key, value)
         return self
@@ -367,15 +413,16 @@ class StateMixin:
         path : str or Path
             The path of the YAML file to be saved.
         """
-        state = self.state_dict()
-        with open(path, "w") as f:
-            yaml.dump(state, f)
-
-    def serialize(self):
-        """
-        Serialize the object.
-        """
-        return self.state_dict()
+        path = Path(path)
+        state = self.serialize()
+        if path.suffix == '.yaml':
+            with open(path, "w") as f:
+                yaml.dump(state, f)
+        elif path.suffix == '.json':
+            with open(path, 'w') as f:
+                json.dump(state, f)
+        else:
+            torch.save(state, path)
 
 
 class DynamicLoadableMixin(LoadableMixin):
