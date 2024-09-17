@@ -443,7 +443,7 @@ class LoadableModule(LoadableMixin, nn.Module):
 
 
 class LoadableSequential(LoadableMixin, nn.Sequential):
-    """A Loadable variant of nn.Sequential"""
+    """A Loadable variant of [`nn.Sequential`][torch.nn.Sequential]"""
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -497,7 +497,7 @@ class LoadableSequential(LoadableMixin, nn.Sequential):
 
 
 class LoadableModuleList(LoadableMixin, nn.ModuleList):
-    """A Loadable variant of nn.ModuleList"""
+    """A Loadable variant of [`nn.ModuleList`][torch.nn.ModuleList]"""
 
     def __init__(self, modules=None):
         super().__init__(modules)
@@ -538,7 +538,7 @@ class LoadableModuleList(LoadableMixin, nn.ModuleList):
 
 
 class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
-    """A Loadable variant of nn.ModuleDict"""
+    """A Loadable variant of [`nn.ModuleDict`][torch.nn.ModuleDict]"""
 
     def __init__(self, modules=None):
         super().__init__(modules)
