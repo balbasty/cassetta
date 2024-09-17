@@ -8,11 +8,11 @@ from typing import Union, Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from cassetta.io.utils import import_fullname, import_qualname
 from cassetta import models, losses
-from cassetta.io.modules import LoadableModuleDict
+from cassetta.io.modules import LoadableModuleDict, StateMixin
 
 
 @dataclass
-class TrainerState:
+class TrainerState(StateMixin):
     """
     Stores the state of the trainer, including metrics, losses, epoch, and
     step.
@@ -24,27 +24,6 @@ class TrainerState:
     current_metrics: Dict[str, Any] = None
     current_epoch: int = 0
     current_step: int = 0
-
-    def serialize(self) -> Dict[str, Any]:
-        """
-        Serializes the trainer state.
-        """
-        return asdict(self)
-
-    def save(self, path: str) -> None:
-        """
-        Saves serialized trainer state to a file.
-        """
-        torch.save(self.serialize(), path)
-
-    @classmethod
-    def load(cls, state: Union[str, Dict[str, Any]]) -> "TrainerState":
-        """
-        Loads the trainer state from a file or dict.
-        """
-        if not isinstance(state, dict):
-            state = torch.load(state)
-        return cls(**state)
 
 
 class Trainer(nn.Module):
