@@ -371,11 +371,11 @@ class StateMixin:
         """
         if isinstance(state, (str, Path)):
             path = Path(state)
-            if path.suffix == '.yaml':
+            if path.suffix == ".yaml":
                 with open(state, "r") as f:
                     state = yaml.load(f, Loader=yaml.Loader)
-            elif path.suffix == '.json':
-                with open(state, 'r') as f:
+            elif path.suffix == ".json":
+                with open(state, "r") as f:
                     state = json.load(f)
             else:
                 state = torch.load(state)
@@ -415,11 +415,11 @@ class StateMixin:
         """
         path = Path(path)
         state = self.serialize()
-        if path.suffix == '.yaml':
+        if path.suffix == ".yaml":
             with open(path, "w") as f:
                 yaml.dump(state, f)
-        elif path.suffix == '.json':
-            with open(path, 'w') as f:
+        elif path.suffix == ".json":
+            with open(path, "w") as f:
                 json.dump(state, f)
         else:
             torch.save(state, path)
@@ -466,21 +466,10 @@ class LoadableSequential(LoadableMixin, nn.Sequential):
             "cassetta.LoadableState": LoadableMixin.__version__,
             "module": type(self).__module__,
             "qualname": type(self).__qualname__,
-            "modules": [module.serialize() for module in self],
-            "args": getattr(self, "_args", tuple()),
+            "args": [module.serialize() for module in self],
             "kwargs": getattr(self, "_kwargs", dict()),
             "state": self.state_dict(),
         }
-
-    @classmethod
-    def load(cls, loadable_state):
-        if not isinstance(loadable_state, dict):
-            loadable_state = torch.load(loadable_state)
-        modules = []
-        for module_state in loadable_state["modules"]:
-            modules.append(LoadableMixin.load(module_state))
-        instance = cls(*modules)
-        return instance
 
 
 # Example:
@@ -520,21 +509,10 @@ class LoadableModuleList(LoadableMixin, nn.ModuleList):
             "cassetta.LoadableState": LoadableMixin.__version__,
             "module": type(self).__module__,
             "qualname": type(self).__qualname__,
-            "modules": [module.serialize() for module in self],
-            "args": getattr(self, "_args", tuple()),
+            "args": [[module.serialize() for module in self]],
             "kwargs": getattr(self, "_kwargs", dict()),
             "state": self.state_dict(),
         }
-
-    @classmethod
-    def load(cls, loadable_state):
-        if not isinstance(loadable_state, dict):
-            loadable_state = torch.load(loadable_state)
-        modules = []
-        for module_state in loadable_state["modules"]:
-            modules.append(LoadableMixin.load(module_state))
-        instance = cls(modules)
-        return instance
 
 
 class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
@@ -556,21 +534,7 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
             "cassetta.LoadableState": LoadableMixin.__version__,
             "module": type(self).__module__,
             "qualname": type(self).__qualname__,
-            "modules": {
-                key: module.serialize() for key, module in self.items()
-                },
-            "args": getattr(self, "_args", tuple()),
+            "args": [{key: module.serialize() for key, module in self.items()}],
             "kwargs": getattr(self, "_kwargs", dict()),
             "state": self.state_dict(),
         }
-
-    @classmethod
-    def load(cls, loadable_state):
-        if not isinstance(loadable_state, dict):
-            loadable_state = torch.load(loadable_state)
-        modules = {
-            key: LoadableMixin.load(mod_state)
-            for key, mod_state in loadable_state["modules"].items()
-        }
-        instance = cls(modules)
-        return instance
