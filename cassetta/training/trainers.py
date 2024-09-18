@@ -54,21 +54,14 @@ class Trainer(LoadableModule):
 
         # Serialize all optimizers
         optimizers_state = {}
-        for name, optimizer in self.optimizers.items():
-            optimizer_class = optimizer.__class__
-            optimizer_params = self._get_optimizer_params(optimizer)
-            optimizer_state_dict = optimizer.state_dict()
-            optimizers_state[name] = {
-                "qualname": optimizer_class.__name__,
-                "module": optimizer_class.__module__,
-                "kwargs": optimizer_params,
-                "state": optimizer_state_dict,
-            }
+        optimizers_state = {
+            name: opt.serialize() for name, opt in self.optimizers.items()
+        }
 
         # Update state with models and optimizers
         state["models"] = models_state
         state["optimizers"] = optimizers_state
-        state["trainer_state"] = self.trainer_state  # .serialize()
+        state["trainer_state"] = self.trainer_state
 
         return state
 
@@ -98,23 +91,8 @@ class Trainer(LoadableModule):
         # Load optimizers
         obj.optimizers = {}
         optimizers_state = state.get("optimizers", {})
-        for name, optimizer_info in optimizers_state.items():
-            optimizer_module_name = optimizer_info["module"]
-            optimizer_class_name = optimizer_info["qualname"]
-            optimizer_params = optimizer_info["kwargs"]
-            optimizer_state_dict = optimizer_info["state"]
-
-            # Dynamically import the optimizer class
-            optimizer_module = __import__(
-                optimizer_module_name, fromlist=[optimizer_class_name]
-            )
-            optimizer_class = getattr(optimizer_module, optimizer_class_name)
-
-            # Initialize the optimizer with the model's parameters
-            optimizer = optimizer_class(
-                obj.models[name].parameters(), **optimizer_params
-            )
-            optimizer.load_state_dict(optimizer_state_dict)
+        for name, optimizer_state in optimizers_state.items():
+            optimizer = LoadableMixin._nested_unserialize(optimizer_state)
             obj.optimizers[name] = optimizer
 
         obj.trainer_state = state.get("trainer_state", {})
