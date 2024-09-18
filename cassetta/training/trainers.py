@@ -68,6 +68,7 @@ class Trainer(LoadableModule):
         # Update state with models and optimizers
         state["models"] = models_state
         state["optimizers"] = optimizers_state
+        state["trainer_state"] = self.trainer_state.serialize()
 
         return state
 
