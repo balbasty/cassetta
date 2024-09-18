@@ -1,14 +1,19 @@
-import os
 import torch
 from torch import nn
+from inspect import signature
 from torch import optim as torch_optim
 from torch.optim import Optimizer
 from torch.utils.data import Dataset, DataLoader
 from typing import Union, Optional, Dict, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from cassetta.io.utils import import_fullname, import_qualname
 from cassetta import models, losses
-from cassetta.io.modules import LoadableModuleDict, StateMixin
+from cassetta.io.modules import (
+    LoadableModule,
+    LoadableModuleDict,
+    StateMixin,
+    LoadableMixin,
+)
 
 
 @dataclass
@@ -26,89 +31,116 @@ class TrainerState(StateMixin):
     current_step: int = 0
 
 
-class Trainer(nn.Module):
+class Trainer(LoadableModule):
     """
     Base class for training models with serialization and state loading.
     Handles registering models, saving entire state to a file, and loading it.
     """
 
+    @LoadableModule.save_args
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.models = LoadableModuleDict()
         self.optimizers = {}
         self.trainer_state = TrainerState()
 
-    def register_model(
-        self, name, model: nn.Module, optimizer: torch.optim.Optimizer = None
-    ):
+    def serialize(self) -> dict:
+        state = super().serialize()
+
+        # Serialize all models
+        models_state = {
+            name: model.serialize() for name, model in self.models.items()
+            }
+
+        # Serialize all optimizers
+        optimizers_state = {}
+        for name, optimizer in self.optimizers.items():
+            optimizer_class = optimizer.__class__
+            optimizer_params = self._get_optimizer_params(optimizer)
+            optimizer_state_dict = optimizer.state_dict()
+            optimizers_state[name] = {
+                "qualname": optimizer_class.__name__,
+                "module": optimizer_class.__module__,
+                "kwargs": optimizer_params,
+                "state": optimizer_state_dict,
+            }
+
+        # Update state with models and optimizers
+        state["models"] = models_state
+        state["optimizers"] = optimizers_state
+
+        return state
+
+    @classmethod
+    def load(cls, state):
+        if not isinstance(state, dict):
+            state = torch.load(state)
+
+        # Create an uninitialized instance of Trainer
+        obj = cls.__new__(cls)
+
+        # Initialize the instance without calling __init__
+        super(Trainer, obj).__init__(
+            *state.get("_args", ()), **state.get("_kwargs", {})
+        )
+
+        # Load models first
+        obj.models = nn.ModuleDict()
+        models_state = state.get("models", {})
+        for name, model_state in models_state.items():
+            model = LoadableMixin._nested_unserialize(model_state)
+            obj.models[name] = model
+
+        # Now we can load the state dict
+        obj.load_state_dict(state["state"])
+
+        # Load optimizers
+        obj.optimizers = {}
+        optimizers_state = state.get("optimizers", {})
+        for name, optimizer_info in optimizers_state.items():
+            optimizer_module_name = optimizer_info["module"]
+            optimizer_class_name = optimizer_info["qualname"]
+            optimizer_params = optimizer_info["kwargs"]
+            optimizer_state_dict = optimizer_info["state"]
+
+            # Dynamically import the optimizer class
+            optimizer_module = __import__(
+                optimizer_module_name, fromlist=[optimizer_class_name]
+            )
+            optimizer_class = getattr(optimizer_module, optimizer_class_name)
+
+            # Initialize the optimizer with the model's parameters
+            optimizer = optimizer_class(
+                obj.models[name].parameters(), **optimizer_params
+            )
+            optimizer.load_state_dict(optimizer_state_dict)
+            obj.optimizers[name] = optimizer
+
+        return obj
+
+    def _get_optimizer_params(self, optimizer):
+        params = {}
+        sig = signature(optimizer.__class__.__init__)
+        for name, param in sig.parameters.items():
+            if name in ["self", "params"]:
+                continue
+            if hasattr(optimizer, name):
+                params[name] = getattr(optimizer, name)
+            elif name in optimizer.defaults:
+                params[name] = optimizer.defaults[name]
+        return params
+
+    def register_model(self, name, model: nn.Module):
         """
-        Register a model to the Trainer, along with its optimizer.
+        Register a model to the Trainer.
         """
         self.models[name] = model
-        if optimizer:
-            self.optimizers[name] = optimizer
 
-    def save(self, file_path):
+    def register_optimizer(self, name, optim: torch.optim.Optimizer = None):
         """
-        Save the Trainer state, including all models, optimizers, and trainer
-        state.
+        Register an optimizer to the trainer.
         """
-        checkpoint = {
-            "models": {
-                name: model.state_dict() for name, model in self.models.items()
-                },
-            "optimizers": {
-                name: optimizer.state_dict()
-                for name, optimizer in self.optimizers.items()
-            },
-            "trainer_state": self.trainer_state.__dict__,
-            "model_classes": {
-                name: model.__class__ for name, model in self.models.items()
-            },
-            "model_init_args": {
-                name: model._init_args for name, model in self.models.items()
-            },  # Save model initialization arguments
-        }
-        torch.save(checkpoint, file_path)
-        print(f"Trainer state saved to {file_path}")
-
-    def load(self, file_path):
-        """
-        Load the Trainer state from a file, restoring models, optimizers,
-        and trainer state.
-        """
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"No saved trainer found at {file_path}")
-
-        checkpoint = torch.load(file_path)
-
-        # Re-create models from saved classes and their init args
-        for name, model_class in checkpoint["model_classes"].items():
-            # Load model initialization arguments
-            init_args = checkpoint["model_init_args"][name]
-
-            if name not in self.models:
-                # Dynamically create the model using the saved init args
-                model = model_class(**init_args)
-                model.load_state_dict(checkpoint["models"][name])
-                self.models[name] = model
-            else:
-                self.models[name].load_state_dict(checkpoint["models"][name])
-
-            if name not in self.optimizers:
-                # Adjust optimizer as needed
-                optimizer = torch.optim.Adam(self.models[name].parameters())
-                optimizer.load_state_dict(checkpoint["optimizers"][name])
-                self.optimizers[name] = optimizer
-            else:
-                self.optimizers[name].load_state_dict(
-                    checkpoint["optimizers"][name]
-                    )
-
-        # Restore trainer state
-        self.trainer_state.__dict__.update(checkpoint["trainer_state"])
-        print(f"Trainer state loaded from {file_path}")
-        return self
+        self.optimizers[name] = optim
 
 
 class BasicTrainer(Trainer):
