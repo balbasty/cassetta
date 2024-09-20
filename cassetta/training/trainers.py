@@ -284,6 +284,7 @@ class BasicSupervisedTrainer(Trainer):
         self.trainer_state.epoch_train_loss /= len(self.trainset)
         if self.trainer_config.logging:
             self.log_metric('train_epoch', self.trainer_state.epoch_train_loss)
+            self.log_parameter_hist()
 
     def eval_epoch(self):
         # Reset eval loss
@@ -306,6 +307,8 @@ class BasicSupervisedTrainer(Trainer):
             # TODO: self.save_checkpoint()
 
     def train(self):
+        if self.trainer_config.logging:
+            self.log_model_graph()
         if self.trainer_config.refresh_experiment_dir:
             refresh_experiment_dir(self.trainer_config.experiment_dir)
         for i in range(self.trainer_config.nb_epochs):
@@ -333,3 +336,20 @@ class BasicSupervisedTrainer(Trainer):
         sample_inputs, _ = self.trainset[0]
         model = self.models['model']
         self.writer.add_graph(model, sample_inputs)
+
+    def log_parameter_hist(self) -> None:
+        """
+        Log histograms of model parameters and gradients for TensorBoard.
+        """
+        for name, param in self.models["model"].named_parameters():
+            self.writer.add_histogram(
+                name,
+                param,
+                self.trainer_state.current_epoch
+                )
+            if param.grad is not None:
+                self.writer.add_histogram(
+                    tag=f'{name}.grad',
+                    values=param.grad,
+                    global_step=self.trainer_state.current_epoch
+                    )
