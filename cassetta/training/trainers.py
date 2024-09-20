@@ -4,6 +4,7 @@ from inspect import signature
 from torch import optim as torch_optim
 from torch.optim import Optimizer
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from typing import Union, Optional, Dict, Any
 from dataclasses import dataclass
 from cassetta.io.utils import import_fullname, import_qualname
@@ -17,18 +18,56 @@ from cassetta.io.modules import (
 
 
 @dataclass
+class TrainerConfig(StateMixin):
+    """
+    State configuration of the training process.
+
+    Attributes
+    ----------
+    experiment_dir : str
+        The filesystem path where model checkpoints and logs will be saved.
+    nb_epochs : int, optional
+        The number of epochs to train the model. Default is 100.
+    batch_size : int, optional
+        The number of samples per training batch. Default is 1.
+    lr : float, optional
+        The learning rate for the optimizer. Default is 1e-4.
+    logging : bool, optional
+        Optionally enable logging during training. Default is True.
+    early_stopping : float
+    """
+    experiment_dir: str
+    nb_epochs: int = 100
+    batch_size: int = 1
+    lr: float = 1e-4
+    logging: bool = True
+    early_stopping: float = 0
+
+
+@dataclass
 class TrainerState(StateMixin):
     """
-    Stores the state of the trainer, including metrics, losses, epoch, and
-    step.
-    """
+    Tracks the current state of the training process.
 
-    all_losses: Dict[str, Any] = None
-    all_metrics: Dict[str, Any] = None
-    current_losses: Dict[str, Any] = None
-    current_metrics: Dict[str, Any] = None
+    Attributes
+    ----------
+    current_epoch : int, optional
+        The current epoch number being processed. Default is 0.
+    current_step : int, optional
+        The current step number within the current epoch. Default is 0.
+    epoch_train_loss : float, optional
+        The cumulative training loss for the current epoch. Default is 0.0.
+    epoch_eval_loss : float, optional
+        The cumulative evaluation loss for the current epoch. Default is 0.0.
+    best_eval_loss : None, optional
+        The best evaluation loss for the entire training process.
+        Default is None
+    """
     current_epoch: int = 0
     current_step: int = 0
+    epoch_train_loss: float = 0.0
+    epoch_eval_loss: float = 0.0
+    best_eval_loss: float = None
 
 
 class Trainer(LoadableModule):
@@ -157,3 +196,104 @@ class BasicTrainer(Trainer):
             else:
                 optim = import_fullname(optim)
             self.optimizers["model"] = (optim, lr)
+
+
+class BasicSupervisedTrainer(Trainer):
+
+    # @Trainer.save_args
+    def __init__(
+        self,
+        loss: Union[str, nn.Module],
+        trainset: Union[Dataset, DataLoader],
+        evalset: Optional[Union[Dataset, DataLoader]] = None,
+        trainer_config: TrainerConfig = None,
+        *,
+        opt_model: dict = None,
+        opt_loss: dict = None,
+    ):
+        super().__init__()
+        self.loss = loss
+        self.trainset = trainset
+        self.evalset = evalset
+        self.trainer_config = trainer_config
+        self.trainer_state = TrainerState()
+        trainer_config.save_state_dict(
+            f'{trainer_config.experiment_dir}/trainer_config.yaml'
+            )
+        if self.trainer_config.logging:
+            self.writer = SummaryWriter(self.trainer_config.experiment_dir)
+
+    def train_step(self, minibatch):
+        # Unpacking minibatch
+        x, y = minibatch
+        # Zeroing optimizer gradients
+        self.optimizers["model"].zero_grad()
+        # Forward pass
+        outputs = self.models["model"](x)
+        # Calculate loss
+        _loss = self.loss(y, outputs)
+        # Update trainer state
+        self.trainer_state.epoch_train_loss += _loss.item() 
+        # Optionally log.
+        # TODO: incorporate logger
+        if self.trainer_config.logging:
+            print(_loss.item())
+            self.log_metric('train', _loss.item())
+        # Backward pass
+        _loss.backward()
+        # Step optimizer
+        self.optimizers["model"].step()
+        # Increment current step
+        self.trainer_state.current_step += 1
+
+    def eval_step(self, minibatch):
+        raise NotImplementedError
+
+    def log_loss(self, name, value):
+        raise NotImplementedError
+
+    def log_metric(self, phase, scalar_value):
+        self.writer.add_scalar(
+            tag=f'{phase}_loss',
+            scalar_value=scalar_value,
+            global_step=self.trainer_state.current_step
+            )
+
+    def train_epoch(self):
+        # For sanity check dataset, must load minibatches like this or else
+        # it will go to infinity.
+        self.trainer_state.epoch_train_loss = 0
+        for n in range(len(self.trainset)):
+            self.train_step(self.trainset[n])
+
+    def eval_epoch(self):
+        with torch.no_grad():
+            for n in range(len(self.evalset)):
+                self.eval_step(self.evalset[n])
+
+    def train(self):
+        for i in range(self.trainer_config.nb_epochs):
+            self.train_epoch()
+            if self.evalset:
+                self.eval_epoch()
+            # Increment current epoch
+            self.trainer_state.current_epoch += 1
+
+    def register_model(self, name, model):
+        super().register_model(name, model)
+        if self.trainer_config.logging:
+            self.log_model_graph()
+
+    def log_model_graph(self) -> SummaryWriter:
+        """
+        Logs the model graph to TensorBoard.
+
+        Returns
+        -------
+        SummaryWriter
+            TensorBoard SummaryWriter object.
+        """
+        # Initialize writer
+        sample_inputs, _ = self.trainset[0]
+        model = self.models['model']
+        self.writer.add_graph(model, sample_inputs)
