@@ -8,9 +8,12 @@ __all__ = [
     'torch_version',
     'to_torch_dtype',
     'import_submodules',
+    'refresh_experiment_dir'
 ]
+import os
 import numbers
 import numpy as np
+import shutil
 import torch
 from torch import Tensor
 from types import GeneratorType as generator
@@ -311,3 +314,36 @@ def import_submodules(submodules, module, all=None, import_into=False):
                 setattr(parent, child_obj_name, getattr(child, child_obj_name))
                 if all is not None:
                     all += [child_obj_name]
+
+
+def refresh_experiment_dir(experiment_dir: str) -> None:
+    """
+    Check if the directory has contents, and if so, delete them recursively.
+
+    Parameters
+    ----------
+    dir_path : str
+        Path to the directory to be checked and cleared.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the directory does not exist.
+    """
+    if not os.path.exists(experiment_dir):
+        raise FileNotFoundError(f"The directory {experiment_dir} does not exist.")
+
+    # Check if directory is not empty
+    if os.listdir(experiment_dir):
+        # Recursively remove all contents of the directory
+        for item in os.listdir(experiment_dir):
+            item_path = os.path.join(experiment_dir, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)  # Remove directory and its contents
+            else:
+                os.remove(item_path)  # Remove file
+        print(f"All contents of {experiment_dir} have been deleted.")
+    else:
+        print(f"The directory {experiment_dir} is already empty.")
+    os.mkdir(f'{experiment_dir}/predictions')
+    os.mkdir(f'{experiment_dir}/checkpoints')
