@@ -7,6 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from typing import Union, Optional, Dict, Any
 from dataclasses import dataclass
+from cassetta.core.utils import refresh_experiment_dir
 from cassetta.io.utils import import_fullname, import_qualname
 from cassetta import models, losses
 from cassetta.io.modules import (
@@ -35,6 +36,8 @@ class TrainerConfig(StateMixin):
     logging : bool, optional
         Optionally enable logging during training. Default is True.
     early_stopping : float
+    refresh_experiment_dir : bool
+        Delete contents of `experiment_dir` when run starts.
     """
     experiment_dir: str
     nb_epochs: int = 100
@@ -42,6 +45,7 @@ class TrainerConfig(StateMixin):
     lr: float = 1e-4
     logging: bool = True
     early_stopping: float = 0
+    refresh_experiment_dir: bool = False
 
 
 @dataclass
@@ -67,7 +71,7 @@ class TrainerState(StateMixin):
     current_step: int = 0
     epoch_train_loss: float = 0.0
     epoch_eval_loss: float = 0.0
-    best_eval_loss: float = None
+    best_eval_loss: float = 100  # Arbitrary
 
 
 class Trainer(LoadableModule):
@@ -224,20 +228,21 @@ class BasicSupervisedTrainer(Trainer):
             self.writer = SummaryWriter(self.trainer_config.experiment_dir)
 
     def train_step(self, minibatch):
-        # Unpacking minibatch
+        # Set model to train mode
+        self.models["model"].train()
+        # Unpack minibatch
         x, y = minibatch
-        # Zeroing optimizer gradients
+        # Zero optimizer gradients
         self.optimizers["model"].zero_grad()
         # Forward pass
         outputs = self.models["model"](x)
         # Calculate loss
         _loss = self.loss(y, outputs)
         # Update trainer state
-        self.trainer_state.epoch_train_loss += _loss.item() 
+        self.trainer_state.epoch_train_loss += _loss.item()
         # Optionally log.
         # TODO: incorporate logger
         if self.trainer_config.logging:
-            print(_loss.item())
             self.log_metric('train', _loss.item())
         # Backward pass
         _loss.backward()
@@ -247,7 +252,17 @@ class BasicSupervisedTrainer(Trainer):
         self.trainer_state.current_step += 1
 
     def eval_step(self, minibatch):
-        raise NotImplementedError
+        # Do not keep track of gradients
+        with torch.no_grad():
+            # Set model to eval mode
+            self.models["model"].eval()
+            # Unpack minibatch
+            x, y = minibatch
+            # Forward pass
+            outputs = self.models["model"](x)
+            # Calculate loss
+            _loss = self.loss(y, outputs)
+            self.trainer_state.epoch_eval_loss += _loss.item()
 
     def log_loss(self, name, value):
         raise NotImplementedError
@@ -265,13 +280,34 @@ class BasicSupervisedTrainer(Trainer):
         self.trainer_state.epoch_train_loss = 0
         for n in range(len(self.trainset)):
             self.train_step(self.trainset[n])
+        # Average train epoch loss
+        self.trainer_state.epoch_train_loss /= len(self.trainset)
+        if self.trainer_config.logging:
+            self.log_metric('train_epoch', self.trainer_state.epoch_train_loss)
 
     def eval_epoch(self):
-        with torch.no_grad():
-            for n in range(len(self.evalset)):
-                self.eval_step(self.evalset[n])
+        # Reset eval loss
+        self.trainer_state.epoch_eval_loss = 0
+        # Iterate through eval set
+        for n in range(len(self.evalset)):
+            self.eval_step(self.evalset[n])
+        # Average eval epoch loss
+        self.trainer_state.epoch_eval_loss /= len(self.trainset)
+        # Optionally log to tensorboard
+        if self.trainer_config.logging:
+            self.log_metric('eval_epoch', self.trainer_state.epoch_eval_loss)
+        # If this is best checkpoint...
+        if self.trainer_state.epoch_eval_loss < (
+            self.trainer_state.best_eval_loss
+        ):
+            self.trainer_state.best_eval_loss = (
+                self.trainer_state.epoch_eval_loss
+                )
+            # TODO: self.save_checkpoint()
 
     def train(self):
+        if self.trainer_config.refresh_experiment_dir:
+            refresh_experiment_dir(self.trainer_config.experiment_dir)
         for i in range(self.trainer_config.nb_epochs):
             self.train_epoch()
             if self.evalset:
