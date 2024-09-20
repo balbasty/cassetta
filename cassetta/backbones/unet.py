@@ -4,9 +4,10 @@ from typing import Optional, Union, Literal
 from cassetta.core.typing import (
     OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType)
 from .fcn import ConvEncoder, ConvDecoder
+from cassetta.io.modules import LoadableMixin
 
 
-class UNet(nn.Module):
+class UNet(nn.Module, LoadableMixin):
     """A UNet
 
     !!! tip "Diagram"
