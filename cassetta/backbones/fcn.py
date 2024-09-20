@@ -124,6 +124,8 @@ class ConvEncoder(nn.Sequential):
             ]
         else:
             enc_features = list(nb_features)
+            # Overwrite any defined nb_levels if user defines feat list.
+            nb_levels = len(nb_features)
             enc_features += [
                 int(enc_features[-1:] * mul_features**level)
                 for level in range(nb_levels - len(enc_features))
@@ -304,7 +306,9 @@ class ConvDecoder(nn.Sequential):
                 for level in range(nb_levels)
             ]
         else:
+            # Overwrite any defined nb_levels if user defines feat list.
             dec_features = list(nb_features)
+            nb_levels = len(dec_features)
             dec_features += [
                 max(1, int(dec_features[-1:] // div_features**level))
                 for level in range(nb_levels - len(dec_features))
