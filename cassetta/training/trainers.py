@@ -3,21 +3,23 @@ from torch import nn
 from inspect import signature
 from torch import optim as torch_optim
 from torch.optim import Optimizer
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 from typing import Union, Optional, Dict, Any
 from dataclasses import dataclass
-from cassetta.core.utils import refresh_experiment_dir
 from cassetta.io.utils import import_fullname, import_qualname
 from cassetta import models, losses
+from cassetta.core.utils import (
+    refresh_experiment_dir,
+    delete_files_with_pattern,
+    find_files_with_pattern
+    )
 from cassetta.io.modules import (
     LoadableModule,
     LoadableModuleDict,
     StateMixin,
     LoadableMixin,
 )
-
-
 @dataclass
 class TrainerConfig(StateMixin):
     """
@@ -46,6 +48,7 @@ class TrainerConfig(StateMixin):
     logging: bool = True
     early_stopping: float = 0
     refresh_experiment_dir: bool = False
+    train_to_val: float = 0.8
 
 
 @dataclass
@@ -175,7 +178,7 @@ class BasicTrainer(Trainer):
         model: Union[str, nn.Module],
         loss: Union[str, nn.Module],
         optim: Union[str, Optimizer],
-        trainset: Union[Dataset, DataLoader],
+        dataset: Union[Dataset, DataLoader],
         evalset: Optional[Union[Dataset, DataLoader]] = None,
         nb_epochs: int = None,
         nb_steps: int = None,
@@ -204,11 +207,11 @@ class BasicTrainer(Trainer):
 
 class BasicSupervisedTrainer(Trainer):
 
-    # @Trainer.save_args
+    @Trainer.save_args
     def __init__(
         self,
         loss: Union[str, nn.Module],
-        trainset: Union[Dataset, DataLoader],
+        dataset: Union[Dataset, DataLoader],
         evalset: Optional[Union[Dataset, DataLoader]] = None,
         trainer_config: TrainerConfig = None,
         *,
@@ -217,19 +220,34 @@ class BasicSupervisedTrainer(Trainer):
     ):
         super().__init__()
         self.loss = loss
-        self.trainset = trainset
-        self.evalset = evalset
+        self.dataset = dataset
         self.trainer_config = trainer_config
-        self.trainer_state = TrainerState()
-        trainer_config.save_state_dict(
-            f'{trainer_config.experiment_dir}/trainer_config.yaml'
-            )
+        self.get_loaders(self.dataset)
         if self.trainer_config.logging:
             self.writer = SummaryWriter(self.trainer_config.experiment_dir)
 
+    def get_loaders(self, dataset):
+        seed = torch.Generator().manual_seed(42)
+        train_set, eval_set = random_split(
+            dataset,
+            [
+                self.trainer_config.train_to_val,
+                1 - self.trainer_config.train_to_val
+            ],
+            seed
+        )
+        self.train_loader = DataLoader(
+                    dataset=train_set,
+                    batch_size=self.trainer_config.batch_size,
+                    shuffle=True
+                    )
+        self.eval_loader = DataLoader(
+            dataset=eval_set,
+            batch_size=1,
+            shuffle=False
+        )
+
     def train_step(self, minibatch):
-        # Set model to train mode
-        self.models["model"].train()
         # Unpack minibatch
         x, y = minibatch
         # Zero optimizer gradients
@@ -254,8 +272,6 @@ class BasicSupervisedTrainer(Trainer):
     def eval_step(self, minibatch):
         # Do not keep track of gradients
         with torch.no_grad():
-            # Set model to eval mode
-            self.models["model"].eval()
             # Unpack minibatch
             x, y = minibatch
             # Forward pass
@@ -275,25 +291,29 @@ class BasicSupervisedTrainer(Trainer):
             )
 
     def train_epoch(self):
+        # Set model to train mode
+        self.models["model"].train()
         # For sanity check dataset, must load minibatches like this or else
         # it will go to infinity.
         self.trainer_state.epoch_train_loss = 0
-        for n in range(len(self.trainset)):
-            self.train_step(self.trainset[n])
+        for minibatch in self.train_loader:
+            self.train_step(minibatch)
         # Average train epoch loss
-        self.trainer_state.epoch_train_loss /= len(self.trainset)
+        self.trainer_state.epoch_train_loss /= len(self.train_loader)
         if self.trainer_config.logging:
             self.log_metric('train_epoch', self.trainer_state.epoch_train_loss)
             self.log_parameter_hist()
 
     def eval_epoch(self):
+        # Set model to eval mode
+        self.models["model"].eval()
         # Reset eval loss
         self.trainer_state.epoch_eval_loss = 0
         # Iterate through eval set
-        for n in range(len(self.evalset)):
-            self.eval_step(self.evalset[n])
+        for minibatch in self.eval_loader:
+            self.eval_step(minibatch)
         # Average eval epoch loss
-        self.trainer_state.epoch_eval_loss /= len(self.trainset)
+        self.trainer_state.epoch_eval_loss /= len(self.eval_loader)
         # Optionally log to tensorboard
         if self.trainer_config.logging:
             self.log_metric('eval_epoch', self.trainer_state.epoch_eval_loss)
@@ -304,7 +324,8 @@ class BasicSupervisedTrainer(Trainer):
             self.trainer_state.best_eval_loss = (
                 self.trainer_state.epoch_eval_loss
                 )
-            # TODO: self.save_checkpoint()
+            self.save_checkpoint('best')
+        self.save_checkpoint('last')
 
     def train(self):
         if self.trainer_config.logging:
@@ -313,7 +334,7 @@ class BasicSupervisedTrainer(Trainer):
             refresh_experiment_dir(self.trainer_config.experiment_dir)
         for i in range(self.trainer_config.nb_epochs):
             self.train_epoch()
-            if self.evalset:
+            if self.eval_loader:
                 self.eval_epoch()
             # Increment current epoch
             self.trainer_state.current_epoch += 1
@@ -333,8 +354,9 @@ class BasicSupervisedTrainer(Trainer):
             TensorBoard SummaryWriter object.
         """
         # Initialize writer
-        sample_inputs, _ = self.trainset[0]
+        sample_inputs, _ = next(iter(self.train_loader))
         model = self.models['model']
+        # print(sample_inputs.shape)
         self.writer.add_graph(model, sample_inputs)
 
     def log_parameter_hist(self) -> None:
@@ -352,4 +374,57 @@ class BasicSupervisedTrainer(Trainer):
                     tag=f'{name}.grad',
                     values=param.grad,
                     global_step=self.trainer_state.current_epoch
-                    )
+                )
+
+    def save_checkpoint(self, type: str = 'last'):
+        """
+        Save a checkpoint.
+
+        type : str
+            Type of checkpoint to save {`last`, `best`}
+        """
+        checkpoint_dir = f'{self.trainer_config.experiment_dir}/checkpoints'
+        if type == 'last':
+            delete_files_with_pattern(checkpoint_dir, '*last*')
+            self.save(
+                f'{checkpoint_dir}/last-{self.trainer_state.current_epoch}.pt'
+                )
+        if type == 'best':
+            delete_files_with_pattern(checkpoint_dir, '*best*')
+            self.save(
+                f'{checkpoint_dir}/best-{self.trainer_state.current_epoch}.pt'
+                )
+
+    def serialize(self) -> dict:
+        """
+        Override the serialize method to exclude the 'dataset' attribute.
+        """
+        state = super().serialize()
+
+        # Exclude 'dataset' by setting it to an empty dictionary
+        state['kwargs']['dataset'] = {}
+        return state
+
+    # @classmethod
+    #def load(experiment_dir: str, type: str = 'last', verbose: bool = False):
+        #"""
+        #experiment_dir : str
+        #    Directory of experiment
+        #type : str
+        #    Checkpoint to load {'best', 'last'}
+        #verbose : bool
+        #    Loading is verbose
+        #"""
+        #experiment_dir += '/checkpoints'
+        #if type not in ['best', 'last']:
+        #    raise ValueError("Type must be either 'best' or 'last'.")
+
+        #if type == 'last':
+        #    hits = find_files_with_pattern(experiment_dir, '*last*')
+        #elif type == 'best':
+        #    hits = find_files_with_pattern(experiment_dir, '*best*')
+        #checkpoint = hits[0]
+        #if verbose:
+        #    print(f'Loading checkpoint: {checkpoint}')
+
+        #return super().load(checkpoint)
