@@ -102,6 +102,7 @@ class UNet(nn.Module, LoadableMixin):
     def all_out_channels(self):
         return self.decoder.all_out_channels
 
+    @LoadableMixin.save_args
     def __init__(
         self,
         ndim: int,
