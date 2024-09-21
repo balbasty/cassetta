@@ -8,8 +8,10 @@ __all__ = [
     'torch_version',
     'to_torch_dtype',
     'import_submodules',
-    'refresh_experiment_dir'
+    'refresh_experiment_dir',
+    'delete_files_with_pattern'
 ]
+import glob
 import os
 import numbers
 import numpy as np
@@ -347,3 +349,69 @@ def refresh_experiment_dir(experiment_dir: str) -> None:
         print(f"The directory {experiment_dir} is already empty.")
     os.mkdir(f'{experiment_dir}/predictions')
     os.mkdir(f'{experiment_dir}/checkpoints')
+
+
+def delete_files_with_pattern(directory, pattern):
+    """
+    Deletes all files in the specified directory that match the given pattern.
+
+    Parameters
+    ----------
+    directory : str
+        The path to the directory.
+    pattern : str
+        The glob pattern to match files.
+
+    Example
+    -------
+    delete_files_with_pattern('/path/to/directory', '*last*')
+    """
+    # Construct the full search pattern
+    search_pattern = os.path.join(directory, pattern)
+
+    # Retrieve a list of files matching the pattern
+    files_to_delete = glob.glob(search_pattern)
+
+    if not files_to_delete:
+        pass
+
+    for file_path in files_to_delete:
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error deleting file {file_path}: {e}")
+
+
+def find_files_with_pattern(directory, pattern):
+    """
+    Search for files in the specified directory that match the given grep
+    pattern.
+
+    Parameters
+    ----------
+    directory : str
+        The path to the directory to search.
+    pattern : str
+        The grep pattern to search for.
+
+    Returns
+    -------
+    paths : list
+        A list of file paths that match the pattern.
+    """
+
+    # Check if the directory exists
+    if not os.path.exists(directory):
+        raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+
+    # Check if the path is a directory
+    if not os.path.isdir(directory):
+        raise NotADirectoryError(f"The path '{directory}' is not a directory.")
+
+    # Construct the search pattern
+    search_pattern = os.path.join(directory, pattern)
+
+    # Use glob to find files matching the pattern
+    matching_files = glob.glob(search_pattern)
+
+    return matching_files
