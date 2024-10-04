@@ -12,4 +12,4 @@ from cassetta.core.utils import import_submodules
 
 import_submodules([
     'supervised',
-], __name__, True)
+], __name__, None, True)
