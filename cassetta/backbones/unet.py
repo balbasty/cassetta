@@ -7,7 +7,7 @@ from cassetta.io.modules import LoadableMixin
 from .fcn import ConvEncoder, ConvDecoder
 
 
-class UNet(nn.Module, LoadableMixin):
+class UNet(LoadableMixin, nn.Module):
     """A UNet
 
     !!! tip "Diagram"
