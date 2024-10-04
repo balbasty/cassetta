@@ -1,20 +1,16 @@
 __all__ = [
-    'LoadableAdam'
+    'LoadableAdam',
 ]
 
-from torch.optim import Adam
-from cassetta.io.modules import LoadableMixin
+from torch import optim
+from cassetta.io.modules import LoadableOptimizer
 
 
-class LoadableAdam(LoadableMixin, Adam):
+class LoadableAdam(LoadableOptimizer, optim.Adam):
     """
-    A loadable variant of PyTorch's Adam optimizer. [torch.optim.Adam]
+    A loadable variant of [`optim.Adam`][torch.optim.Adam]
+
+    This optimizer saves everything except model parameters.
     """
-    @LoadableMixin.save_args
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0, amsgrad=False):
-        """
-        Initialize the LoadableAdam optimizer.
-        """
-        super().__init__(params, lr=lr, betas=betas, eps=eps,
-                         weight_decay=weight_decay, amsgrad=amsgrad)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
