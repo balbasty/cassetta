@@ -20,6 +20,8 @@ from cassetta.io.modules import (
     StateMixin,
     LoadableMixin,
 )
+
+
 @dataclass
 class TrainerConfig(StateMixin):
     """
