@@ -1,18 +1,18 @@
 import torch
+import importlib
 from torch import nn
 from inspect import signature
 from torch import optim as torch_optim
 from torch.optim import Optimizer
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
-from typing import Union, Optional, Dict, Any
+from typing import Union, Optional
 from dataclasses import dataclass
 from cassetta.io.utils import import_fullname, import_qualname
 from cassetta import models, losses
 from cassetta.core.utils import (
     refresh_experiment_dir,
     delete_files_with_pattern,
-    find_files_with_pattern
     )
 from cassetta.io.modules import (
     LoadableModule,
@@ -101,13 +101,11 @@ class Trainer(LoadableModule):
             name: model.serialize() for name, model in self.models.items()
             }
 
-        # Serialize all optimizers
-        optimizers_state = {}
         optimizers_state = {
-            name: opt.serialize() for name, opt in self.optimizers.items()
+            name: optimizer.serialize() for name,
+            optimizer in self.optimizers.items()
         }
 
-        # Update state with models and optimizers
         state["models"] = models_state
         state["optimizers"] = optimizers_state
         state["trainer_state"] = self.trainer_state
@@ -137,14 +135,31 @@ class Trainer(LoadableModule):
         # Now we can load the state dict
         obj.load_state_dict(state["state"])
 
-        # Load optimizers
         obj.optimizers = {}
         optimizers_state = state.get("optimizers", {})
         for name, optimizer_state in optimizers_state.items():
-            optimizer = LoadableMixin._nested_unserialize(optimizer_state)
-            obj.optimizers[name] = optimizer
+            # Deserialize optimizer class using 'module' and 'qualname'
+            module_path = optimizer_state['module']
+            class_name = optimizer_state['qualname']
+            optimizer_class = getattr(
+                importlib.import_module(module_path), class_name
+                )
 
-        obj.trainer_state = state.get("trainer_state", {})
+            # Get optimizer args and kwargs
+            args = optimizer_state.get('args', ())
+            kwargs = optimizer_state.get('kwargs', {})
+
+            # Initialize optimizer with model's parameters and saved
+            # args and kwargs
+            optimizer = optimizer_class(
+                obj.models[name].parameters(), *args, **kwargs
+                )
+
+            # Load optimizer's state_dict
+            optimizer.load_state_dict(optimizer_state["state_dict"])
+
+            # Register optimizer
+            obj.optimizers[name] = optimizer
 
         return obj
 
