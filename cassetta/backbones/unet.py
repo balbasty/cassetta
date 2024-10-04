@@ -3,8 +3,8 @@ from torch import nn
 from typing import Optional, Union, Literal
 from cassetta.core.typing import (
     OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType)
-from .fcn import ConvEncoder, ConvDecoder
 from cassetta.io.modules import LoadableMixin
+from .fcn import ConvEncoder, ConvDecoder
 
 
 class UNet(nn.Module, LoadableMixin):
