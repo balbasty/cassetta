@@ -1,29 +1,46 @@
 __all__ = [
-    "SupervisedSanitycheckDataset"
+    "DummySupervisedDataset"
 ]
 
 import torch
 from torch.utils.data import Dataset
 
 
-class SupervisedSanitycheckDataset(Dataset):
+class DummySupervisedDataset(Dataset):
     """
-    Dataset for x-y paired data.
+    A synthetic dataset for supervised learning with paired inputs and targets.
+
+    This dataset generates random tensors to simulate x-y paired data, which
+    can be used for debugging/training supervised learning models and
+    pipelines for regression and classification.
     """
 
     def __init__(
         self,
-        n_samples: str = 100,
+        n_samples: int = 100,
         x_shape: tuple = (1, 64, 64, 64),
         y_shape: tuple = (1, 64, 64, 64),
         n_classes: int = None,
         device: str = 'cuda',
     ):
         """
-        Dataset for random input an.
+        Initializes the DummySupervisedDataset.
 
-        patch_directory : str
-            Directory containing patches of data in .pt file format
+        Parameters
+        ----------
+        n_samples : int, optional
+            Number of samples (input-target pairs) in the
+            dataset (default is 100).
+        x_shape : tuple, optional
+            Shape of the input tensor (default is (1, 64, 64, 64)).
+        y_shape : tuple, optional
+            Shape of the target tensor (default is (1, 64, 64, 64)).
+        n_classes : int, optional
+            Number of classes for classification tasks. If `None`, targets are
+            continuous tensors for regression tasks (default is None).
+        device : str, optional
+            Device to allocate data {'cuda', 'cpu'}
+            (default is 'cuda').
         """
         self.n_samples = n_samples
         self.x_shape = x_shape
@@ -37,7 +54,7 @@ class SupervisedSanitycheckDataset(Dataset):
 
         Returns
         -------
-        length : int
+        int
             Length of random dataset (x-y pairs).
         """
         return self.n_samples
@@ -53,15 +70,17 @@ class SupervisedSanitycheckDataset(Dataset):
         y : torch.Tensor
             Target tensor.
         """
-        # Sample x data and add batch dimension
+        # Generate random input tensor
         x = torch.randn(self.x_shape, device=self.device).unsqueeze(0)
-        # Sample y data and add batch dimension        
+        # Generate random target tensor based on task (classification vs reg)
         if isinstance(self.n_classes, int):
+            # Classification: integer target class labels
             y = torch.randint(
                 high=self.n_classes,
                 size=self.y_shape,
                 device=self.device
                 ).unsqueeze(0)
         else:
+            # Regression: continuious targets
             y = torch.randn(self.y_shape, device=self.device).unsqueeze(0)
         return x.to(torch.float32), y.to(torch.float32)
