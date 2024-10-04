@@ -49,6 +49,7 @@ class TrainerConfig(StateMixin):
     early_stopping: float = 0
     refresh_experiment_dir: bool = False
     train_to_val: float = 0.8
+    num_workers: int = 0
 
 
 @dataclass
@@ -239,12 +240,14 @@ class BasicSupervisedTrainer(Trainer):
         self.train_loader = DataLoader(
                     dataset=train_set,
                     batch_size=self.trainer_config.batch_size,
-                    shuffle=True
+                    shuffle=True,
+                    num_workers=self.trainer_config.num_workers
                     )
         self.eval_loader = DataLoader(
             dataset=eval_set,
             batch_size=1,
-            shuffle=False
+            shuffle=False,
+            num_workers=self.trainer_config.num_workers
         )
 
     def train_step(self, minibatch):
