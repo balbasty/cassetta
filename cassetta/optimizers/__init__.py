@@ -37,7 +37,6 @@ from cassetta.core.typing import OptimType
 from torch.optim import optimizer
 
 import_submodules([
-    'base',
     'adam'
 ], __name__, __all__, True)
 
