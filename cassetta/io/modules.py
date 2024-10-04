@@ -3,6 +3,7 @@ __all__ = [
     "LoadableModule",
     "LoadableModuleList",
     "LoadableModuleDict",
+    "LoadableOptimizer",
     "LoadableSequential",
     "DynamicLoadableMixin",
     "load_module",
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Union, IO
 from warnings import warn
 from inspect import signature
+from torch import optim
 from .utils import import_qualname
 
 
@@ -540,3 +542,28 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
             "kwargs": getattr(self, "_kwargs", dict()),
             "state": self.state_dict(),
         }
+
+
+class LoadableOptimizer(LoadableMixin, optim.Optimizer):
+    """
+    A loadable variant of [`optim.Optimizer`][torch.optim.Optimizer]
+
+    This is a loadable mixin for optimizers **without** saving model params.
+    """
+
+    def serialize(self) -> dict:
+        # Serialize as normal
+        serialized_state = super().serialize()
+        # Gather state dict as standard from pytorch optimizer
+        serialized_state["state_dict"] = self.state_dict()
+        # Gather args and kwargs (to be manipulated)
+        args = serialized_state.get("args", tuple())
+        kwargs = serialized_state.get("kwargs", dict())
+        # Remove params from args if present
+        if args and isinstance(args[0], (torch.nn.Parameter, torch.Tensor)):
+            args = args[1:]
+        # Replace args and kwargs
+        serialized_state["args"] = args
+        serialized_state["kwargs"] = kwargs
+
+        return serialized_state
