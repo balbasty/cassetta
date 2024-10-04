@@ -71,13 +71,13 @@ class TrainerState(StateMixin):
         The cumulative evaluation loss for the current epoch. Default is 0.0.
     best_eval_loss : None, optional
         The best evaluation loss for the entire training process.
-        Default is None
+        Default is inf.
     """
     current_epoch: int = 0
     current_step: int = 0
     epoch_train_loss: float = 0.0
     epoch_eval_loss: float = 0.0
-    best_eval_loss: float = 100  # Arbitrary
+    best_eval_loss: float = float('inf')
 
 
 class Trainer(LoadableModule):
