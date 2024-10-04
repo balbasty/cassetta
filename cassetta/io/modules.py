@@ -534,7 +534,9 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
             "cassetta.LoadableState": LoadableMixin.__version__,
             "module": type(self).__module__,
             "qualname": type(self).__qualname__,
-            "args": [{key: module.serialize() for key, module in self.items()}],
+            "args": [{
+                key: module.serialize() for key, module in self.items()
+                }],
             "kwargs": getattr(self, "_kwargs", dict()),
             "state": self.state_dict(),
         }

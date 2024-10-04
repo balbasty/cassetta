@@ -11,13 +11,14 @@ class SupervisedSanitycheckDataset(Dataset):
     Dataset for x-y paired data.
     """
 
-    def __init__(self,
-                 n_samples: str = 100,
-                 x_shape: tuple = (1, 64, 64, 64),
-                 y_shape: tuple = (1, 64, 64, 64),
-                 n_classes: int = None,
-                 device: str = 'cuda',
-                 ):
+    def __init__(
+        self,
+        n_samples: str = 100,
+        x_shape: tuple = (1, 64, 64, 64),
+        y_shape: tuple = (1, 64, 64, 64),
+        n_classes: int = None,
+        device: str = 'cuda',
+    ):
         """
         Dataset for random input an.
 
@@ -28,7 +29,7 @@ class SupervisedSanitycheckDataset(Dataset):
         self.x_shape = x_shape
         self.y_shape = y_shape
         self.n_classes = n_classes
-        self.device = device  
+        self.device = device
 
     def __len__(self):
         """

@@ -333,7 +333,9 @@ def refresh_experiment_dir(experiment_dir: str) -> None:
         If the directory does not exist.
     """
     if not os.path.exists(experiment_dir):
-        raise FileNotFoundError(f"The directory {experiment_dir} does not exist.")
+        raise FileNotFoundError(
+            f"The directory {experiment_dir} does not exist."
+            )
 
     # Check if directory is not empty
     if os.listdir(experiment_dir):
