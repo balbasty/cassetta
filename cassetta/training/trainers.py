@@ -37,8 +37,14 @@ class TrainerConfig(StateMixin):
         The number of samples per training batch. Default is 1.
     lr : float, optional
         The learning rate for the optimizer. Default is 1e-4.
-    logging : bool, optional
-        Optionally enable logging during training. Default is True.
+    logging_verbosity : int, optional
+        Optionally log training progress with a specified verbosity {0, 1, 2}.
+        Default is 1.\n
+        Options are:
+            - 0: No logging to tensorboard.
+            - 1: Basic logging to tensorboard (eval and train loss).
+            - 2: Detailed logging to tensorboard, eval loss, training loss,
+                parameter histograms, and model graph.
     early_stopping : float
     refresh_experiment_dir : bool
         Delete contents of `experiment_dir` when run starts.
@@ -47,7 +53,7 @@ class TrainerConfig(StateMixin):
     nb_epochs: int = 100
     batch_size: int = 1
     lr: float = 1e-4
-    logging: bool = True
+    logging_verbosity: int = 1
     early_stopping: float = 0
     refresh_experiment_dir: bool = False
     train_to_val: float = 0.8
@@ -114,6 +120,8 @@ class Trainer(LoadableModule):
 
     @classmethod
     def load(cls, state):
+        # TODO: Set option to load trainer in fine-tuning mode. This will:
+        # 1. Set trainer state eval loss back to negative infinity
         if not isinstance(state, dict):
             state = torch.load(state)
 
@@ -125,12 +133,15 @@ class Trainer(LoadableModule):
             *state.get("_args", ()), **state.get("_kwargs", {})
         )
 
+        # obj = super().load(state)
+
         # Load models first
         obj.models = nn.ModuleDict()
         models_state = state.get("models", {})
         for name, model_state in models_state.items():
             model = LoadableMixin._nested_unserialize(model_state)
-            obj.models[name] = model
+            # TODO: Make something to put model on device
+            obj.models[name] = model.cuda()
 
         # Now we can load the state dict
         obj.load_state_dict(state["state"])
@@ -160,6 +171,11 @@ class Trainer(LoadableModule):
 
             # Register optimizer
             obj.optimizers[name] = optimizer
+
+        obj.trainer_state = state.get('trainer_state')
+        # Resetting the best eval loss so fine tuning isn't expected to perform
+        # as well.
+        obj.trainer_state.best_eval_loss = float('inf')
 
         return obj
 
@@ -241,16 +257,19 @@ class BasicSupervisedTrainer(Trainer):
         self.dataset = dataset
         self.trainer_config = trainer_config
         self.get_loaders(self.dataset)
-        if self.trainer_config.logging:
+        if self.trainer_config.logging_verbosity >= 1:
             self.writer = SummaryWriter(self.trainer_config.experiment_dir)
 
     def get_loaders(self, dataset):
         seed = torch.Generator().manual_seed(42)
+        train_set_size = round(len(dataset) * self.trainer_config.train_to_val)
+        val_set_size = len(dataset) - train_set_size
+
         train_set, eval_set = random_split(
             dataset,
             [
-                self.trainer_config.train_to_val,
-                1 - self.trainer_config.train_to_val
+                train_set_size,
+                val_set_size
             ],
             seed
         )
@@ -280,8 +299,8 @@ class BasicSupervisedTrainer(Trainer):
         self.trainer_state.epoch_train_loss += _loss.item()
         # Optionally log.
         # TODO: incorporate logger
-        if self.trainer_config.logging:
-            self.log_metric('train', _loss.item())
+        if self.trainer_config.logging_verbosity >= 1:
+            self.log_metric('train', _loss.item(), 'step')
         # Backward pass
         _loss.backward()
         # Step optimizer
@@ -296,18 +315,25 @@ class BasicSupervisedTrainer(Trainer):
             x, y = minibatch
             # Forward pass
             outputs = self.models["model"](x)
-            # Calculate loss
+            # Calculate los`s
             _loss = self.loss(y, outputs)
             self.trainer_state.epoch_eval_loss += _loss.item()
 
     def log_loss(self, name, value):
         raise NotImplementedError
 
-    def log_metric(self, phase, scalar_value):
+    def log_metric(self, phase, scalar_value, timestep):
+        if timestep == 'epoch':
+            timestep = self.trainer_state.current_epoch
+        elif timestep == 'step':
+            timestep = self.trainer_state.current_step
+        else:
+            raise f'Invalid timestep {timestep}. Must be "step" or "epoch".'
+
         self.writer.add_scalar(
             tag=f'{phase}_loss',
             scalar_value=scalar_value,
-            global_step=self.trainer_state.current_step
+            global_step=timestep
             )
 
     def train_epoch(self):
@@ -320,8 +346,12 @@ class BasicSupervisedTrainer(Trainer):
             self.train_step(minibatch)
         # Average train epoch loss
         self.trainer_state.epoch_train_loss /= len(self.train_loader)
-        if self.trainer_config.logging:
-            self.log_metric('train_epoch', self.trainer_state.epoch_train_loss)
+        if self.trainer_config.logging_verbosity >= 1:
+            self.log_metric(
+                'train_epoch',
+                self.trainer_state.epoch_train_loss,
+                'epoch')
+        if self.trainer_config.logging_verbosity >= 2:
             self.log_parameter_hist()
 
     def eval_epoch(self):
@@ -335,20 +365,25 @@ class BasicSupervisedTrainer(Trainer):
         # Average eval epoch loss
         self.trainer_state.epoch_eval_loss /= len(self.eval_loader)
         # Optionally log to tensorboard
-        if self.trainer_config.logging:
-            self.log_metric('eval_epoch', self.trainer_state.epoch_eval_loss)
+        if self.trainer_config.logging_verbosity >= 1:
+            self.log_metric(
+                'eval_epoch',
+                self.trainer_state.epoch_eval_loss,
+                'epoch')
         # If this is best checkpoint...
         if self.trainer_state.epoch_eval_loss < (
             self.trainer_state.best_eval_loss
-        ):
+                ):
+
             self.trainer_state.best_eval_loss = (
                 self.trainer_state.epoch_eval_loss
                 )
+
             self.save_checkpoint('best')
         self.save_checkpoint('last')
 
     def train(self):
-        if self.trainer_config.logging:
+        if self.trainer_config.logging_verbosity >= 2:
             self.log_model_graph()
         if self.trainer_config.refresh_experiment_dir:
             refresh_experiment_dir(self.trainer_config.experiment_dir)
@@ -361,7 +396,7 @@ class BasicSupervisedTrainer(Trainer):
 
     def register_model(self, name, model):
         super().register_model(name, model)
-        if self.trainer_config.logging:
+        if self.trainer_config.logging_verbosity >= 2:
             self.log_model_graph()
 
     def log_model_graph(self) -> SummaryWriter:
@@ -386,7 +421,7 @@ class BasicSupervisedTrainer(Trainer):
         for name, param in self.models["model"].named_parameters():
             self.writer.add_histogram(
                 name,
-                param,
+                param.to(torch.uint32),
                 self.trainer_state.current_epoch
                 )
             if param.grad is not None:
