@@ -307,7 +307,7 @@ class BasicSupervisedTrainer(Trainer):
             # Unpack minibatch
             x, y = minibatch
             # Forward pass
-            outputs = self.models["model"](x)
+            outputs = self.model(x)
             # Calculate los`s
             _loss = self.loss(y, outputs)
             self.trainer_state.epoch_eval_loss += _loss.item()
@@ -331,7 +331,7 @@ class BasicSupervisedTrainer(Trainer):
 
     def train_epoch(self):
         # Set model to train mode
-        self.models["model"].train()
+        self.model.train()
         # For sanity check dataset, must load minibatches like this or else
         # it will go to infinity.
         self.trainer_state.epoch_train_loss = 0
@@ -349,7 +349,7 @@ class BasicSupervisedTrainer(Trainer):
 
     def eval_epoch(self):
         # Set model to eval mode
-        self.models["model"].eval()
+        self.model.eval()
         # Reset eval loss
         self.trainer_state.epoch_eval_loss = 0
         # Iterate through eval set
@@ -403,15 +403,14 @@ class BasicSupervisedTrainer(Trainer):
         """
         # Initialize writer
         sample_inputs, _ = next(iter(self.train_loader))
-        model = self.models['model']
         # print(sample_inputs.shape)
-        self.writer.add_graph(model, sample_inputs)
+        self.writer.add_graph(self.model, sample_inputs)
 
     def log_parameter_hist(self) -> None:
         """
         Log histograms of model parameters and gradients for TensorBoard.
         """
-        for name, param in self.models["model"].named_parameters():
+        for name, param in self.model.named_parameters():
             self.writer.add_histogram(
                 name,
                 param.to(torch.uint32),
