@@ -224,20 +224,6 @@ class BasicTrainer(Trainer):
     ):
         super().__init__()
 
-        # instantiate and register model
-        self.models["model"] = models.make_model(model, **(opt_model or {}))
-
-        # instantiate and register loss
-        self.models["loss"] = losses.make_loss(loss, **(opt_loss or {}))
-
-        # instantiate and register optim
-        if isinstance(optim, str):
-            if "." not in optim:
-                optim = import_qualname(torch_optim, optim)
-            else:
-                optim = import_fullname(optim)
-            self.optimizers["model"] = (optim, lr)
-
 
 class BasicSupervisedTrainer(Trainer):
 
@@ -259,6 +245,18 @@ class BasicSupervisedTrainer(Trainer):
         self.get_loaders(self.dataset)
         if self.trainer_config.logging_verbosity >= 1:
             self.writer = SummaryWriter(self.trainer_config.experiment_dir)
+
+    @property
+    def model(self):
+        return self.models["model"]
+
+    @property
+    def optimizer(self):
+        return self.optimizers["model"]
+
+    @property
+    def loss(self):
+        return self.losses["model"]
 
     def get_loaders(self, dataset):
         seed = torch.Generator().manual_seed(42)
@@ -290,9 +288,9 @@ class BasicSupervisedTrainer(Trainer):
         # Unpack minibatch
         x, y = minibatch
         # Zero optimizer gradients
-        self.optimizers["model"].zero_grad()
+        self.optimizer.zero_grad()
         # Forward pass
-        outputs = self.models["model"](x)
+        outputs = self.model(x)
         # Calculate loss
         _loss = self.loss(y, outputs)
         # Update trainer state
@@ -304,7 +302,7 @@ class BasicSupervisedTrainer(Trainer):
         # Backward pass
         _loss.backward()
         # Step optimizer
-        self.optimizers["model"].step()
+        self.optimizer.step()
         # Increment current step
         self.trainer_state.current_step += 1
 
