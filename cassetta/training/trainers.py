@@ -264,12 +264,7 @@ class BasicSupervisedTrainer(Trainer):
         val_set_size = len(dataset) - train_set_size
 
         train_set, eval_set = random_split(
-            dataset,
-            [
-                train_set_size,
-                val_set_size
-            ],
-            seed
+            dataset, [train_set_size, val_set_size], seed
         )
         self.train_loader = DataLoader(
                     dataset=train_set,
