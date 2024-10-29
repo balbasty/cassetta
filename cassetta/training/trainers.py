@@ -457,27 +457,3 @@ class BasicSupervisedTrainer(Trainer):
         # Exclude 'dataset' by setting it to an empty dictionary
         state['kwargs']['dataset'] = {}
         return state
-
-    # @classmethod
-    #def load(experiment_dir: str, type: str = 'last', verbose: bool = False):
-        #"""
-        #experiment_dir : str
-        #    Directory of experiment
-        #type : str
-        #    Checkpoint to load {'best', 'last'}
-        #verbose : bool
-        #    Loading is verbose
-        #"""
-        #experiment_dir += '/checkpoints'
-        #if type not in ['best', 'last']:
-        #    raise ValueError("Type must be either 'best' or 'last'.")
-
-        #if type == 'last':
-        #    hits = find_files_with_pattern(experiment_dir, '*last*')
-        #elif type == 'best':
-        #    hits = find_files_with_pattern(experiment_dir, '*best*')
-        #checkpoint = hits[0]
-        #if verbose:
-        #    print(f'Loading checkpoint: {checkpoint}')
-
-        #return super().load(checkpoint)
