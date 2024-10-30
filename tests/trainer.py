@@ -119,3 +119,7 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
     assert (
         original_lr == loaded_lr
     ), "Optimizer learning rate does not match after loading."
+
+
+if __name__ == '__main__':
+    pytest.main()
