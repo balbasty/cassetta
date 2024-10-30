@@ -224,6 +224,16 @@ class BasicTrainer(Trainer):
     ):
         super().__init__()
 
+    def serialize(self) -> dict:
+        """
+        Override the serialize method to exclude the 'dataset' attribute.
+        """
+        state = super().serialize()
+
+        # Exclude 'dataset' by popping it.
+        state['kwargs'].pop('dataset')
+        return state
+
 
 class BasicSupervisedTrainer(Trainer):
 
@@ -441,13 +451,3 @@ class BasicSupervisedTrainer(Trainer):
             self.save(
                 f'{checkpoint_dir}/best-{self.trainer_state.current_epoch}.pt'
                 )
-
-    def serialize(self) -> dict:
-        """
-        Override the serialize method to exclude the 'dataset' attribute.
-        """
-        state = super().serialize()
-
-        # Exclude 'dataset' by setting it to an empty dictionary
-        state['kwargs']['dataset'] = {}
-        return state
