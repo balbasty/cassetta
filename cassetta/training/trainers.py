@@ -271,7 +271,9 @@ class BasicSupervisedTrainer(Trainer):
     def get_loaders(self, dataset):
         if dataset is not None:
             seed = torch.Generator().manual_seed(42)
-            train_set_size = round(len(dataset) * self.trainer_config.train_to_val)
+            train_set_size = round(
+                len(dataset) * self.trainer_config.train_to_val
+            )
             val_set_size = len(dataset) - train_set_size
 
             train_set, eval_set = random_split(
