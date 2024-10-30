@@ -212,7 +212,7 @@ class BasicTrainer(Trainer):
         model: Union[str, nn.Module],
         loss: Union[str, nn.Module],
         optim: Union[str, Optimizer],
-        dataset: Union[Dataset, DataLoader],
+        dataset: Union[Dataset, DataLoader] = None,
         evalset: Optional[Union[Dataset, DataLoader]] = None,
         nb_epochs: int = None,
         nb_steps: int = None,
@@ -241,7 +241,7 @@ class BasicSupervisedTrainer(Trainer):
     def __init__(
         self,
         loss: Union[str, nn.Module],
-        dataset: Union[Dataset, DataLoader],
+        dataset: Union[Dataset, DataLoader] = None,
         evalset: Optional[Union[Dataset, DataLoader]] = None,
         trainer_config: TrainerConfig = None,
         *,
@@ -269,25 +269,26 @@ class BasicSupervisedTrainer(Trainer):
         return self.losses["model"]
 
     def get_loaders(self, dataset):
-        seed = torch.Generator().manual_seed(42)
-        train_set_size = round(len(dataset) * self.trainer_config.train_to_val)
-        val_set_size = len(dataset) - train_set_size
+        if dataset is not None:
+            seed = torch.Generator().manual_seed(42)
+            train_set_size = round(len(dataset) * self.trainer_config.train_to_val)
+            val_set_size = len(dataset) - train_set_size
 
-        train_set, eval_set = random_split(
-            dataset, [train_set_size, val_set_size], seed
-        )
-        self.train_loader = DataLoader(
-                    dataset=train_set,
-                    batch_size=self.trainer_config.batch_size,
-                    shuffle=True,
-                    num_workers=self.trainer_config.num_workers
-                    )
-        self.eval_loader = DataLoader(
-            dataset=eval_set,
-            batch_size=1,
-            shuffle=False,
-            num_workers=self.trainer_config.num_workers
-        )
+            train_set, eval_set = random_split(
+                dataset, [train_set_size, val_set_size], seed
+            )
+            self.train_loader = DataLoader(
+                        dataset=train_set,
+                        batch_size=self.trainer_config.batch_size,
+                        shuffle=True,
+                        num_workers=self.trainer_config.num_workers
+                        )
+            self.eval_loader = DataLoader(
+                dataset=eval_set,
+                batch_size=1,
+                shuffle=False,
+                num_workers=self.trainer_config.num_workers
+            )
 
     def train_step(self, minibatch):
         # Unpack minibatch
