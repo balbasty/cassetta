@@ -268,6 +268,31 @@ class BasicSupervisedTrainer(Trainer):
     def loss(self):
         return self.losses["model"]
 
+    def serialize(self) -> dict:
+        """
+        Override the serialize method to exclude any PyTorch dataset
+        instances in both 'state['kwargs']' and 'state['args']'.
+        """
+        state = super().serialize()
+
+        # Exclude any instance of PyTorch Dataset in `state['kwargs']`
+        keys_to_pop = [
+            key for key, value in state['kwargs'].items()
+            if isinstance(value, torch.utils.data.Dataset)
+        ]
+
+        for key in keys_to_pop:
+            state['kwargs'].pop(key)
+
+        # Exclude any instance of PyTorch Dataset in `state['args']`
+        if isinstance(state['args'], (list, tuple)):
+            state['args'] = [
+                arg for arg in state['args']
+                if not isinstance(arg, torch.utils.data.Dataset)
+            ]
+
+        return state
+
     def get_loaders(self, dataset):
         if dataset is not None:
             seed = torch.Generator().manual_seed(42)
