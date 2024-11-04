@@ -3,7 +3,6 @@ from torch import nn
 from typing import Optional, Union, Literal
 from cassetta.core.typing import (
     OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType)
-from cassetta.io.modules import LoadableMixin
 from .fcn import ConvEncoder, ConvDecoder
 
 
@@ -102,7 +101,6 @@ class UNet(nn.Module):
     def all_out_channels(self):
         return self.decoder.all_out_channels
 
-    @LoadableMixin.save_args
     def __init__(
         self,
         ndim: int,
