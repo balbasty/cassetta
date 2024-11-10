@@ -70,9 +70,13 @@ def trainer(trainer_config, dummy_dataset):
 # Test Function
 def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
     # Train for one epoch
-    backbone = UNet(3, 8, nb_levels=2)
-    model = SegNet(3, 1, 1, backbone=backbone)
+    opt_backbone = {
+        "nb_features": 8,
+        "nb_levels": 2
+    }
+    model = SegNet(3, 1, 1, backbone='UNet', opt_backbone=opt_backbone)
     optimizer = LoadableAdam(model.parameters())
+
     trainer.register_model('model', model)
     trainer.register_optimizer('model', optimizer)
     trainer.train_epoch()
