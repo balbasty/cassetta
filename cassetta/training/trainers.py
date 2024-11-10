@@ -1,15 +1,10 @@
 import torch
 import importlib
 from torch import nn
-from inspect import signature
-from torch import optim as torch_optim
-from torch.optim import Optimizer
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 from typing import Union, Optional
 from dataclasses import dataclass
-from cassetta.io.utils import import_fullname, import_qualname
-from cassetta import models, losses
 from cassetta.core.utils import (
     refresh_experiment_dir,
     delete_files_with_pattern,
@@ -112,7 +107,7 @@ class Trainer(LoadableModule):
     Parameters
     ----------
     model : nn.Module, optional
-        The main model to be used in training, by default None. It must inherit 
+        The main model to be used in training, by default None. It must inherit
         from `LoadableMixin` for serialization.
     optimizer : torch.optim.Optimizer, optional
         The optimizer associated with the main model, by default None.
@@ -134,8 +129,8 @@ class Trainer(LoadableModule):
         Parameters
         ----------
         model : nn.Module, optional
-            The main model to be used in training, by default None. It must inherit 
-            from `LoadableMixin` for serialization.
+            The main model to be used in training, by default None. It must
+            inherit from `LoadableMixin` for serialization.
         optimizer : torch.optim.Optimizer, optional
             The optimizer associated with the main model, by default None.
         loss : nn.Module, optional
@@ -223,7 +218,6 @@ class Trainer(LoadableModule):
         }
         return component_state_dict
 
-
     @classmethod
     def load(cls, state):
         """
@@ -233,16 +227,15 @@ class Trainer(LoadableModule):
         Parameters
         ----------
         state : dict or str
-            A dictionary containing the Trainer state, or a path to a file 
+            A dictionary containing the Trainer state, or a path to a file
             from which the state can be loaded.
 
         Returns
         -------
         Trainer
-            An instance of Trainer with loaded models, optimizers, and 
+            An instance of Trainer with loaded models, optimizers, and
             trainer state.
         """
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if not isinstance(state, dict):
             state = torch.load(state)
 
@@ -264,7 +257,23 @@ class Trainer(LoadableModule):
 
         return obj
 
-    def optimizers_from_state_dict(self, obj, state_dict):
+    def optimizers_from_state_dict(self, obj, state_dict: dict):
+        """
+        Deseralize optimizers from state dict with model parameters.
+
+        This method builds uninitalized optimizers by loading the corresponding
+        model and instantiating the optimizer by passing the loaded model's
+        parameters. Args and kwargs, extracted from it's `state_dict`, are also
+        passed to the optimizer on initialization, as they were not captured
+        on the optimizer's initialization.
+
+        Parameters
+        ----------
+        obj : Trainer
+            Trainer instance
+        state_dict : dict
+            State dictionary for the optimizers.
+        """
         # Get the optimizers state so we can iterate through them.
         optimizers_state = state_dict.get("optimizers", {})
         # Iterate through the optimizers
@@ -324,12 +333,12 @@ class BasicSupervisedTrainer(Trainer):
     @Trainer.save_args
     def __init__(
         self,
+        *args,
         dataset: Union[Dataset, DataLoader] = None,
         evalset: Optional[Union[Dataset, DataLoader]] = None,
-        opt_model: dict = None,
-        opt_loss: dict = None,
-        *args,
-        **kwargs
+        #opt_model: dict = None,
+        #opt_loss: dict = None,
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.dataset = dataset
