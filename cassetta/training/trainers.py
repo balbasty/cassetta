@@ -379,6 +379,14 @@ class BasicSupervisedTrainer(Trainer):
         return state
 
     def get_loaders(self, dataset):
+        """
+        Get training and evaluation dataloaders from the dataset.
+
+        Parameters
+        ----------
+        dataset : Dataset
+            Dataset contining the data to be used for training and evaluation.
+        """
         if dataset is not None:
             seed = torch.Generator().manual_seed(42)
             train_set_size = round(
@@ -403,6 +411,22 @@ class BasicSupervisedTrainer(Trainer):
             )
 
     def train_step(self, minibatch):
+        """
+        Perform a single training step.
+
+        This method performs a single training step by unpacking the minibatch
+        into supervised pairs (x and y), zeroing gradients of the optimizer,
+        and passing the x data into the model. The loss is then calculated
+        between y's and the outputs of the model, and then added to the epoch's
+        total training loss. Gradients are backpropogated, and the optimizer
+        is stepped.
+
+        Parameters
+        ----------
+        minibatch : torch.Tensor
+            Training minibatch extracted from the dataloader. Assumed to have
+            batch and channel dimensions.
+        """
         # Unpack minibatch
         x, y = minibatch
         # Zero optimizer gradients
@@ -425,6 +449,21 @@ class BasicSupervisedTrainer(Trainer):
         self.trainer_state.current_step += 1
 
     def eval_step(self, minibatch):
+        """
+        Perform a single evaluation (validation) step.
+
+        This method performs a single step for evaluating the model on the
+        evaluation set. Inference is performed without tracking gradients by
+        first unpacking the minibatch and computing the loss between the y's
+        and the model's output. The loss is calculated and accumulated into
+        the epoch's total evaluation loss.
+
+        Parameters
+        ----------
+        minibatch : torch.Tensor
+            Evaluation minibatch extracted from the dataloader. Assumed to have
+            batch and channel dimensions.
+        """
         # Do not keep track of gradients
         with torch.no_grad():
             # Unpack minibatch
@@ -438,7 +477,24 @@ class BasicSupervisedTrainer(Trainer):
     def log_loss(self, name, value):
         raise NotImplementedError
 
-    def log_metric(self, phase, scalar_value, timestep):
+    def log_metric(
+        self,
+        resolution: str,
+        scalar_value: float,
+        timestep: int
+    ):
+        """
+        Logs a scalar metric value at a specified timestep.
+
+        Parameters
+        ----------
+        resolution : str
+            Resolution of the logging interval. Options are {'epoch', 'step'}
+        scalar_value : float
+            The value/magnitude of the metric to be logged.
+        timestep : int
+            The current time step for logging the metric.
+        """
         if timestep == 'epoch':
             timestep = self.trainer_state.current_epoch
         elif timestep == 'step':
@@ -447,12 +503,15 @@ class BasicSupervisedTrainer(Trainer):
             raise f'Invalid timestep {timestep}. Must be "step" or "epoch".'
 
         self.writer.add_scalar(
-            tag=f'{phase}_loss',
+            tag=f'{resolution}_loss',
             scalar_value=scalar_value,
             global_step=timestep
             )
 
     def train_epoch(self):
+        """
+        Train the model on an entire iteration of the training set.
+        """
         # Set model to train mode
         self.model.train()
         # For sanity check dataset, must load minibatches like this or else
@@ -471,6 +530,9 @@ class BasicSupervisedTrainer(Trainer):
             self.log_parameter_hist()
 
     def eval_epoch(self):
+        """
+        Evaluate the model on an entire iteration of the evaluation set.
+        """
         # Set model to eval mode
         self.model.eval()
         # Reset eval loss
@@ -499,6 +561,9 @@ class BasicSupervisedTrainer(Trainer):
         self.save_checkpoint('last')
 
     def train(self):
+        """
+        Train the model for `self.trainer_config.nb_epochs` epochs.
+        """
         if self.trainer_config.logging_verbosity >= 1:
             self.writer = SummaryWriter(self.trainer_config.experiment_dir)
             if self.trainer_config.logging_verbosity >= 2:
