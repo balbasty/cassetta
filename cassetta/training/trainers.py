@@ -340,8 +340,6 @@ class BasicSupervisedTrainer(Trainer):
         super().__init__(*args, **kwargs)
         self.dataset = dataset
         self.get_loaders(self.dataset)
-        # if self.trainer_config.logging_verbosity >= 1:
-        #    self.writer = SummaryWriter(self.trainer_config.experiment_dir)
 
     @property
     def model(self):
@@ -501,8 +499,10 @@ class BasicSupervisedTrainer(Trainer):
         self.save_checkpoint('last')
 
     def train(self):
-        if self.trainer_config.logging_verbosity >= 2:
-            self.log_model_graph()
+        if self.trainer_config.logging_verbosity >= 1:
+            self.writer = SummaryWriter(self.trainer_config.experiment_dir)
+            if self.trainer_config.logging_verbosity >= 2:
+                self.log_model_graph()
         if self.trainer_config.refresh_experiment_dir:
             refresh_experiment_dir(self.trainer_config.experiment_dir)
         for i in range(self.trainer_config.nb_epochs):
