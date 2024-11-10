@@ -39,7 +39,10 @@ def validate_loadable_module(module):
         If the module is not an instance of LoadableMixin.
     """
     if not isinstance(module, LoadableMixin):
-        raise TypeError("Only Loadable modules can be added.")
+        raise TypeError(
+            "Only Loadable modules can be added."
+            f" '{module.__class__.__name__}' is not a LoadableMixin."
+            )
 
 
 def validate_loadable_modules(modules):
@@ -555,7 +558,7 @@ class LoadableOptimizer(LoadableMixin, optim.Optimizer):
         # Serialize as normal
         serialized_state = super().serialize()
         # Gather state dict as standard from pytorch optimizer
-        serialized_state["state_dict"] = self.state_dict()
+        serialized_state["state"] = self.state_dict()
         # Gather args and kwargs (to be manipulated)
         args = serialized_state.get("args", tuple())
         kwargs = serialized_state.get("kwargs", dict())
