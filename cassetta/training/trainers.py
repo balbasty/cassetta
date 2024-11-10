@@ -335,9 +335,6 @@ class BasicSupervisedTrainer(Trainer):
         self,
         *args,
         dataset: Union[Dataset, DataLoader] = None,
-        evalset: Optional[Union[Dataset, DataLoader]] = None,
-        #opt_model: dict = None,
-        #opt_loss: dict = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
