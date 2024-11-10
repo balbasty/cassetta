@@ -89,150 +89,234 @@ class TrainerState(StateMixin):
 class Trainer(LoadableModule):
     """
     Base class for training models with serialization and state loading.
-    Handles registering models, saving entire state to a file, and loading it.
+
+    This class provides a structure for managing model training with PyTorch.
+    It supports the registration of models, optimizers, and loss functions,
+    and allows saving/loading the complete training state to/from a file,
+    making it suitable for resuming training or fine-tuning from a saved state.
+
+    Attributes
+    ----------
+    models : LoadableModuleDict
+        A loadable module dictionary for registered models, where each model 
+        should inherit from `LoadableMixin` to support serialization.
+    optimizers : dict
+        A dictionary containing the registered optimizers, with model names 
+        as keys and optimizer instances as values.
+    losses : dict
+        A dictionary containing registered loss functions for each model.
+    trainer_state : TrainerState
+        An object that tracks the training state, including metrics such as
+        the best validation loss.
+
+    Parameters
+    ----------
+    model : nn.Module, optional
+        The main model to be used in training, by default None. It must inherit 
+        from `LoadableMixin` for serialization.
+    optimizer : torch.optim.Optimizer, optional
+        The optimizer associated with the main model, by default None.
+    loss : nn.Module, optional
+        The loss function associated with the main model, by default None.
     """
 
     @LoadableModule.save_args
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        model=None,
+        optimizer=None,
+        loss=None,
+        trainer_config: TrainerConfig = None,
+    ):
+        """
+        Initializes the Trainer with optional model, optimizer, and loss.
+
+        Parameters
+        ----------
+        model : nn.Module, optional
+            The main model to be used in training, by default None. It must inherit 
+            from `LoadableMixin` for serialization.
+        optimizer : torch.optim.Optimizer, optional
+            The optimizer associated with the main model, by default None.
+        loss : nn.Module, optional
+            The loss function associated with the main model, by default None.
+        """
+        super().__init__()
         self.models = LoadableModuleDict()
         self.optimizers = {}
+        self.losses = {}
+        self._handle_inputs(model, optimizer, loss)
+        self.trainer_config = trainer_config
         self.trainer_state = TrainerState()
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+    def _handle_inputs(self, model, optimizer, loss) -> None:
+        """
+        Handles initial registration of the (main) model and associated
+        optimizer and loss function, if provided.
+
+        Parameters
+        ----------
+        model : nn.Module
+            The main model to be registered.
+        optimizer : torch.optim.Optimizer
+            The main optimizer to be registered.
+        loss : nn.Module
+            The main loss function to be registered.
+        """
+        if model is not None:
+            self.register_model('model', model)
+        if optimizer is not None:
+            self.register_optimizer('model', optimizer)
+        if loss is not None:
+            self.losses['model'] = loss
 
     def serialize(self) -> dict:
-        state = super().serialize()
+        """
+        Custom `Trainer` serialization.
 
-        # Serialize all models
-        models_state = {
-            name: model.serialize() for name, model in self.models.items()
-            }
+        Serializes the Trainer object to a dictionary, capturing the state 
+        of all models, optimizers, and trainer state for saving to a
+        checkpoint.
 
-        optimizers_state = {
-            name: optimizer.serialize() for name,
-            optimizer in self.optimizers.items()
+        Returns
+        -------
+        dict
+            Dictionary containing serialized object.
+        """
+        state_dict = super().serialize()
+
+        # Serialize all models (LoadableModuleDict handles this nicely :))
+        state_dict = self.models.serialize()
+        state_dict["losses"] = self._get_components_state_dict(
+            self.losses
+        )
+        # Serialize all optimizers
+        state_dict["optimizers"] = self._get_components_state_dict(
+            self.optimizers
+        )
+        state_dict["trainer_state"] = self.trainer_state.serialize()
+        state_dict['trainer_config'] = self.trainer_config.serialize()
+        return state_dict
+
+    def _get_components_state_dict(self, component):
+        """
+        Serializes all members of a `Trainer` component (models, optimizers,
+        etc...) into their own state dictionary for easy grouping in into
+        multi-component training setups.
+
+        Parameters
+        ----------
+        component : dict
+            A dictionary containing the `Trainer` component to be serialized.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the serialized state of the component's
+            members.
+        """
+        component_state_dict = {
+            name: member.serialize() for name, member in component.items()
         }
+        return component_state_dict
 
-        state["models"] = models_state
-        state["optimizers"] = optimizers_state
-        state["trainer_state"] = self.trainer_state
-
-        return state
 
     @classmethod
     def load(cls, state):
-        # TODO: Set option to load trainer in fine-tuning mode. This will:
-        # 1. Set trainer state eval loss back to negative infinity
+        """
+        Loads a Trainer object from a saved state, reconstructing models and
+        optimizers based on the saved configuration and state dicts.
+
+        Parameters
+        ----------
+        state : dict or str
+            A dictionary containing the Trainer state, or a path to a file 
+            from which the state can be loaded.
+
+        Returns
+        -------
+        Trainer
+            An instance of Trainer with loaded models, optimizers, and 
+            trainer state.
+        """
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if not isinstance(state, dict):
             state = torch.load(state)
 
-        # Create an uninitialized instance of Trainer
-        obj = cls.__new__(cls)
+        # Init an instance of `Trainer`
+        obj = cls()
 
-        # Initialize the instance without calling __init__
-        super(Trainer, obj).__init__(
-            *state.get("_args", ()), **state.get("_kwargs", {})
-        )
+        # TODO: This is not elegant. Figure out more elegant way to load.
+        obj.models = LoadableMixin.load(state)
+        obj.losses = LoadableMixin.load(state['losses'])
+        # Unpacking `trainer_state` into the obj
+        obj.trainer_state = TrainerState(**state.get('trainer_state', {}))
+        obj.trainer_config = TrainerConfig(**state['trainer_config'])
 
-        # obj = super().load(state)
-
-        # Load models first
-        obj.models = nn.ModuleDict()
-        models_state = state.get("models", {})
-        for name, model_state in models_state.items():
-            model = LoadableMixin._nested_unserialize(model_state)
-            # TODO: Make something to put model on device
-            obj.models[name] = model.cuda()
-
-        # Now we can load the state dict
-        obj.load_state_dict(state["state"])
-
-        obj.optimizers = {}
-        optimizers_state = state.get("optimizers", {})
-        for name, optimizer_state in optimizers_state.items():
-            # Deserialize optimizer class using 'module' and 'qualname'
-            module_path = optimizer_state['module']
-            class_name = optimizer_state['qualname']
-            optimizer_class = getattr(
-                importlib.import_module(module_path), class_name
-                )
-
-            # Get optimizer args and kwargs
-            args = optimizer_state.get('args', ())
-            kwargs = optimizer_state.get('kwargs', {})
-
-            # Initialize optimizer with model's parameters and saved
-            # args and kwargs
-            optimizer = optimizer_class(
-                obj.models[name].parameters(), *args, **kwargs
-                )
-
-            # Load optimizer's state_dict
-            optimizer.load_state_dict(optimizer_state["state_dict"])
-
-            # Register optimizer
-            obj.optimizers[name] = optimizer
-
-        obj.trainer_state = state.get('trainer_state')
+        # Init optimizers with saved model weights and OG optimizer params.
+        obj = cls.optimizers_from_state_dict(cls, obj, state)
         # Resetting the best eval loss so fine tuning isn't expected to perform
         # as well.
         obj.trainer_state.best_eval_loss = float('inf')
 
         return obj
 
-    def _get_optimizer_params(self, optimizer):
-        params = {}
-        sig = signature(optimizer.__class__.__init__)
-        for name, param in sig.parameters.items():
-            if name in ["self", "params"]:
-                continue
-            if hasattr(optimizer, name):
-                params[name] = getattr(optimizer, name)
-            elif name in optimizer.defaults:
-                params[name] = optimizer.defaults[name]
-        return params
+    def optimizers_from_state_dict(self, obj, state_dict):
+        # Get the optimizers state so we can iterate through them.
+        optimizers_state = state_dict.get("optimizers", {})
+        # Iterate through the optimizers
+        for name, optimizer_state in optimizers_state.items():
+            # Get the optimizer class and the module path
+            module_path = optimizer_state['module']
+            class_name = optimizer_state['qualname']
+            # Get the repr of the module that holds the optimizer class
+            module = importlib.import_module(module_path)
+            # Build the uninitialized optimizer
+            uninitialized_optimizer = getattr(module, class_name)
+            # Initialize optimizer with model's parameters and saved
+            # args and kwargs
+            # Get the model so we can pass its params on optimizer init.
+            model = getattr(obj.models, name)
+            # Get _all_ the arguments from the saved optimizer.
+            opt_args = state_dict[
+                'optimizers'
+                ][name]['state']['param_groups'][0]
+            opt_args.pop('params')
+            # Initialize the optimizer
+            optimizer = uninitialized_optimizer(model.parameters(), **opt_args)
+            # Register optimizer
+            obj.optimizers[name] = optimizer
+        return obj
 
     def register_model(self, name, model: nn.Module):
         """
         Register a model to the Trainer.
+
+        Parameters
+        ----------
+        name : str
+            The name of the model, used as the key in `self.models`.
+        model : nn.Module
+            The model to be registered, must inherit from `LoadableMixin`.
         """
         self.models[name] = model
 
     def register_optimizer(self, name, optim: torch.optim.Optimizer = None):
         """
         Register an optimizer to the trainer.
+
+        Parameters
+        ----------
+        name : str
+            The name of the model for corresponding to the optimizer. Used as
+            the key in `self.models`.
+        optim : nn.Module
+            The optimizer to be registered.
         """
         self.optimizers[name] = optim
-
-
-class BasicTrainer(Trainer):
-
-    # @Trainer.save_args
-    def __init__(
-        self,
-        model: Union[str, nn.Module],
-        loss: Union[str, nn.Module],
-        optim: Union[str, Optimizer],
-        dataset: Union[Dataset, DataLoader] = None,
-        evalset: Optional[Union[Dataset, DataLoader]] = None,
-        nb_epochs: int = None,
-        nb_steps: int = None,
-        early_stopping: float = 0,
-        lr=1e-4,
-        *,
-        opt_model: dict = None,
-        opt_loss: dict = None,
-    ):
-        super().__init__()
-
-    def serialize(self) -> dict:
-        """
-        Override the serialize method to exclude the 'dataset' attribute.
-        """
-        state = super().serialize()
-
-        # Exclude 'dataset' by popping it.
-        state['kwargs'].pop('dataset')
-        return state
 
 
 class BasicSupervisedTrainer(Trainer):
@@ -240,21 +324,18 @@ class BasicSupervisedTrainer(Trainer):
     @Trainer.save_args
     def __init__(
         self,
-        loss: Union[str, nn.Module],
         dataset: Union[Dataset, DataLoader] = None,
         evalset: Optional[Union[Dataset, DataLoader]] = None,
-        trainer_config: TrainerConfig = None,
-        *,
         opt_model: dict = None,
         opt_loss: dict = None,
+        *args,
+        **kwargs
     ):
-        super().__init__()
-        self.loss = loss
+        super().__init__(*args, **kwargs)
         self.dataset = dataset
-        self.trainer_config = trainer_config
         self.get_loaders(self.dataset)
-        if self.trainer_config.logging_verbosity >= 1:
-            self.writer = SummaryWriter(self.trainer_config.experiment_dir)
+        # if self.trainer_config.logging_verbosity >= 1:
+        #    self.writer = SummaryWriter(self.trainer_config.experiment_dir)
 
     @property
     def model(self):
