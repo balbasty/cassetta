@@ -552,7 +552,7 @@ class LoadableOptimizer(LoadableMixin, optim.Optimizer):
         kwargs = serialized_state.get("kwargs", dict())
         # Remove params from args if present
         if args and isinstance(args[0], (torch.nn.Parameter, torch.Tensor)):
-            args = args[1:]
+            args = [[]] + list(args[1:])
         # Replace args and kwargs
         serialized_state["args"] = args
         serialized_state["kwargs"] = kwargs
