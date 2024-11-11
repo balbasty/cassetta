@@ -248,14 +248,14 @@ class Trainer(LoadableModule):
         obj.trainer_config = TrainerConfig(**state['trainer_config'])
 
         # Init optimizers with saved model weights and OG optimizer params.
-        obj = cls.optimizers_from_state_dict(cls, obj, state)
+        obj = cls._optimizers_from_state_dict(cls, obj, state)
         # Resetting the best eval loss so fine tuning isn't expected to perform
         # as well.
         obj.trainer_state.best_eval_loss = float('inf')
 
         return obj
 
-    def optimizers_from_state_dict(self, obj, state_dict: dict):
+    def _optimizers_from_state_dict(self, obj, state_dict: dict):
         """
         Deseralize optimizers from state dict with model parameters.
 
