@@ -139,7 +139,7 @@ class Trainer(LoadableModule):
         super().__init__()
         self.models = LoadableModuleDict()
         self.optimizers = {}
-        self.losses = {}
+        self.losses = LoadableModuleDict()
         self._handle_inputs(model, optimizer, loss)
         self.trainer_config = trainer_config
         self.trainer_state = TrainerState()
@@ -244,7 +244,10 @@ class Trainer(LoadableModule):
 
         # TODO: This is not elegant. Figure out more elegant way to load.
         obj.models = LoadableMixin.load(state)
-        obj.losses = LoadableMixin.load(state['losses'])
+        obj.losses = LoadableModuleDict({
+            name: LoadableMixin.load(state['losses'][name]) 
+            for name in state['losses']
+        })
         # Unpacking `trainer_state` into the obj
         obj.trainer_state = TrainerState(**state.get('trainer_state', {}))
         obj.trainer_config = TrainerConfig(**state['trainer_config'])
