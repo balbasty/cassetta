@@ -183,7 +183,7 @@ class LoadableMixin:
     @staticmethod
     def _nested_unserialize(obj, *, klass=None):
         if isinstance(obj, dict):
-            if "cassetta.LoadableState" in obj:
+            if "cassetta.Loadable" in obj:
                 state = obj
                 if klass is None:
                     try:
@@ -262,7 +262,7 @@ class LoadableMixin:
         if DynamicLoadableMixin in klass.__bases__:
             klass = klass.__bases__[-1]
         return {
-            "cassetta.LoadableState": LoadableMixin.__version__,
+            "cassetta.Loadable": LoadableMixin.__version__,
             "module": klass.__module__,
             "qualname": klass.__qualname__,
             "args": getattr(self, "_args", tuple()),
@@ -472,7 +472,7 @@ class LoadableSequential(LoadableMixin, nn.Sequential):
 
     def serialize(self):
         return {
-            "cassetta.LoadableState": LoadableMixin.__version__,
+            "cassetta.Loadable": LoadableMixin.__version__,
             "module": type(self).__module__,
             "qualname": type(self).__qualname__,
             "args": [module.serialize() for module in self],
@@ -501,7 +501,7 @@ class LoadableModuleList(LoadableMixin, nn.ModuleList):
 
     def serialize(self):
         return {
-            "cassetta.LoadableState": LoadableMixin.__version__,
+            "cassetta.Loadable": LoadableMixin.__version__,
             "module": type(self).__module__,
             "qualname": type(self).__qualname__,
             "args": [[module.serialize() for module in self]],
@@ -525,7 +525,7 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
 
     def serialize(self):
         return {
-            "cassetta.LoadableState": LoadableMixin.__version__,
+            "cassetta.Loadable": LoadableMixin.__version__,
             "module": type(self).__module__,
             "qualname": type(self).__qualname__,
             "args": [{
