@@ -337,7 +337,7 @@ class SimpleSupervisedTrainer(Trainer):
     ):
         super().__init__(*args, **kwargs)
         self.dataset = dataset
-        self.get_loaders(self.dataset)
+        self._get_loaders(self.dataset)
 
     @property
     def model(self):
@@ -376,7 +376,7 @@ class SimpleSupervisedTrainer(Trainer):
 
         return state
 
-    def get_loaders(self, dataset):
+    def _get_loaders(self, dataset):
         """
         Get training and evaluation dataloaders from the dataset.
 
