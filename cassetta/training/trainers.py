@@ -137,12 +137,12 @@ class Trainer(LoadableModule):
             The loss function associated with the main model, by default None.
         """
         super().__init__()
+        self.trainer_config = trainer_config
+        self.trainer_state = TrainerState()
         self.models = LoadableModuleDict()
         self.optimizers = {}
         self.losses = LoadableModuleDict()
         self._handle_inputs(model, optimizer, loss)
-        self.trainer_config = trainer_config
-        self.trainer_state = TrainerState()
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -331,8 +331,8 @@ class SimpleSupervisedTrainer(Trainer):
     @Trainer.save_args
     def __init__(
         self,
-        *args,
         dataset: Union[Dataset, DataLoader] = None,
+        *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
