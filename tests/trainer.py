@@ -1,5 +1,5 @@
 """
-This test module verifies the basic functionalities of `BasicSupervisedTrainer`
+This test module verifies the basic functionalities of `SimpleSupervisedTrainer`
 
 Example
 -------
@@ -16,7 +16,7 @@ from cassetta.io.modules import make_loadable
 from cassetta.models.segmentation import SegNet
 from cassetta.backbones.unet import UNet
 from cassetta.optimizers.adam import LoadableAdam
-from cassetta.training.trainers import (TrainerConfig, BasicSupervisedTrainer)
+from cassetta.training.trainers import (TrainerConfig, SimpleSupervisedTrainer)
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ def trainer_config(temp_dir):
 def trainer(trainer_config, dummy_dataset):
     loss_fn = make_loadable(nn.MSELoss)
     loss_fn = loss_fn()
-    return BasicSupervisedTrainer(
+    return SimpleSupervisedTrainer(
         loss=loss_fn,
         dataset=dummy_dataset,
         trainer_config=trainer_config
@@ -82,7 +82,7 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
     assert os.path.exists(checkpoint_path), "Checkpoint file was not created."
 
     # Load the trainer
-    loaded_trainer = BasicSupervisedTrainer.load(checkpoint_path).cpu()
+    loaded_trainer = SimpleSupervisedTrainer.load(checkpoint_path).cpu()
 
     # Verify trainer state
     assert (

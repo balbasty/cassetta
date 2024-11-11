@@ -326,7 +326,7 @@ class Trainer(LoadableModule):
         self.optimizers[name] = optim
 
 
-class BasicSupervisedTrainer(Trainer):
+class SimpleSupervisedTrainer(Trainer):
 
     @Trainer.save_args
     def __init__(
