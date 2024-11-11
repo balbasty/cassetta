@@ -162,11 +162,11 @@ class Trainer(LoadableModule):
             The main loss function to be registered.
         """
         if model is not None:
-            self.register_model('model', model)
+            self.register_model('main', model)
         if optimizer is not None:
-            self.register_optimizer('model', optimizer)
+            self.register_optimizer('main', optimizer)
         if loss is not None:
-            self.losses['model'] = loss
+            self.losses['main'] = loss
 
     def serialize(self) -> dict:
         """
@@ -344,15 +344,15 @@ class BasicSupervisedTrainer(Trainer):
 
     @property
     def model(self):
-        return self.models["model"]
+        return self.models["main"]
 
     @property
     def optimizer(self):
-        return self.optimizers["model"]
+        return self.optimizers["main"]
 
     @property
     def loss(self):
-        return self.losses["model"]
+        return self.losses["main"]
 
     def serialize(self) -> dict:
         """

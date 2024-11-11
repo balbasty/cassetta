@@ -64,8 +64,8 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
     model = SegNet(3, 1, 1, backbone='UNet', opt_backbone=opt_backbone)
     optimizer = LoadableAdam(model.parameters())
 
-    trainer.register_model('model', model)
-    trainer.register_optimizer('model', optimizer)
+    trainer.register_model('main', model)
+    trainer.register_optimizer('main', optimizer)
     trainer.train_epoch()
 
     # Capture original trainer state
@@ -73,7 +73,7 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
     original_step = trainer.trainer_state.current_step
     original_train_loss = trainer.trainer_state.epoch_train_loss
     original_model_state = {
-        k: v.clone() for k, v in trainer.models["model"].state_dict().items()
+        k: v.clone() for k, v in trainer.models["main"].state_dict().items()
     }
 
     # Save trainer
@@ -96,7 +96,7 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
     ) == original_train_loss, "Epoch train loss does not match after loading."
 
     # Verify model parameters
-    loaded_model_state = loaded_trainer.models["model"].state_dict()
+    loaded_model_state = loaded_trainer.models["main"].state_dict()
     for key in original_model_state:
         assert torch.allclose(
             original_model_state[key],
@@ -105,8 +105,8 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
         ), f"Model parameter '{key}' does not match after loading."
 
     # TODO: Verify the rest of optimizer state.
-    original_lr = trainer.optimizers["model"].param_groups[0]['lr']
-    loaded_lr = loaded_trainer.optimizers["model"].param_groups[0]['lr']
+    original_lr = trainer.optimizers["main"].param_groups[0]['lr']
+    loaded_lr = loaded_trainer.optimizers["main"].param_groups[0]['lr']
     assert (
         original_lr == loaded_lr
     ), "Optimizer learning rate does not match after loading."
