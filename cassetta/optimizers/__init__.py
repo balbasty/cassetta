@@ -34,10 +34,11 @@ __all__ = ['make_optimizer']
 from cassetta.io.utils import import_fullname
 from cassetta.core.utils import import_submodules
 from cassetta.core.typing import OptimType
-from torch.optim import optimizer
+from torch.optim import Optimizer
 
 import_submodules([
-    'adam'
+    'adam',
+    'base'
 ], __name__, __all__, True)
 
 
