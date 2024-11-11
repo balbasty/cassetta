@@ -82,7 +82,7 @@ class TrainerState(StateMixin):
     best_eval_loss: float = float('inf')
 
 
-class Trainer(LoadableModule):
+class LoadableTrainer(LoadableModule, save_args=False):
     """
     Base class for training models with serialization and state loading.
 
@@ -333,9 +333,9 @@ class Trainer(LoadableModule):
         self.optimizers[name] = optim
 
 
-class SimpleSupervisedTrainer(Trainer):
+class SimpleSupervisedTrainer(LoadableTrainer):
 
-    @Trainer.save_args
+    @LoadableTrainer.save_args
     def __init__(
         self,
         dataset: Union[Dataset, DataLoader] = None,
