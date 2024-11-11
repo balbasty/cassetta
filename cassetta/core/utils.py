@@ -9,7 +9,8 @@ __all__ = [
     'to_torch_dtype',
     'import_submodules',
     'refresh_experiment_dir',
-    'delete_files_with_pattern'
+    'delete_files_with_pattern',
+    'find_checkpoint'
 ]
 import glob
 import os
@@ -417,3 +418,40 @@ def find_files_with_pattern(directory, pattern):
     matching_files = glob.glob(search_pattern)
 
     return matching_files
+
+
+def find_checkpoint(
+    experiment_dir: str,
+    checkpoint_type: str = "best"
+) -> Optional[str]:
+    """
+    Find the checkpoint file in the specified experiment directory.
+
+    Parameters
+    ----------
+    experiment_dir : str
+        The path to the directory of the experiment.
+    checkpoint_type : str, optional
+        The type of checkpoint to find, either "last" or "best".
+        Defaults to "best".
+
+    Returns
+    -------
+    Optional[str]
+        The full path to the checkpoint file if found, otherwise None.
+
+    Raises
+    ------
+    ValueError
+        If checkpoint_type is not "last" or "best".
+    """
+    if checkpoint_type not in {"last", "best"}:
+        raise ValueError("checkpoint_type must be 'last' or 'best'")
+
+    # Define the pattern for file searching based on checkpoint type
+    pattern = f"{checkpoint_type}-*.pt"
+    # Search for files in the folder matching the pattern
+    matches = glob.glob(os.path.join(experiment_dir, 'checkpoints', pattern))
+
+    # If a match is found, return the first (there should only be one)
+    return matches[0] if matches else None
