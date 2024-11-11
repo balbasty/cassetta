@@ -233,7 +233,7 @@ class Trainer(LoadableModule):
             trainer state.
         """
         if not isinstance(state, dict):
-            state = torch.load(state)
+            state = torch.load(state, weights_only=True)
 
         # Init an instance of `Trainer`
         obj = cls()
