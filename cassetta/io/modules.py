@@ -477,19 +477,6 @@ class LoadableSequential(LoadableMixin, nn.Sequential):
         }
 
 
-# Example:
-# class LoadableLinear(LoadableMixin, nn.Linear):
-#     @LoadableMixin.save_args
-#     def __init__(self, in_features, out_features, bias=True):
-#         super().__init__(in_features, out_features, bias)
-# model = LoadableSequential(module1, make_loadable(nn.ReLU)())
-# model.append(module2)
-# Saving:
-# model.save('loadable_sequential.pth')
-# Loading:
-# loaded_model = LoadableSequential.load('loadable_sequential.pth')
-
-
 class LoadableModuleList(LoadableMixin, nn.ModuleList):
     """A Loadable variant of [`nn.ModuleList`][torch.nn.ModuleList]"""
 
