@@ -17,9 +17,9 @@ class DummySupervisedDataset(Dataset):
 
     def __init__(
         self,
-        n_samples: int = 100,
-        x_shape: tuple = (1, 64, 64, 64),
-        y_shape: tuple = (1, 64, 64, 64),
+        n_samples: int = 20,
+        x_shape: tuple = (1, 32, 32, 32),
+        y_shape: tuple = (1, 32, 32, 32),
         n_classes: int = None,
         device: str = 'cuda',
     ):
@@ -46,7 +46,12 @@ class DummySupervisedDataset(Dataset):
         self.x_shape = x_shape
         self.y_shape = y_shape
         self.n_classes = n_classes
-        self.device = device
+        if device == 'cuda':
+            self.device = torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu"
+            )
+        else:
+            self.device = device
 
     def __len__(self):
         """
@@ -71,7 +76,7 @@ class DummySupervisedDataset(Dataset):
             Target tensor.
         """
         # Generate random input tensor
-        x = torch.randn(self.x_shape, device=self.device).unsqueeze(0)
+        x = torch.randn(self.x_shape, device=self.device)
         # Generate random target tensor based on task (classification vs reg)
         if isinstance(self.n_classes, int):
             # Classification: integer target class labels
@@ -79,8 +84,8 @@ class DummySupervisedDataset(Dataset):
                 high=self.n_classes,
                 size=self.y_shape,
                 device=self.device
-                ).unsqueeze(0)
+                )
         else:
             # Regression: continuious targets
-            y = torch.randn(self.y_shape, device=self.device).unsqueeze(0)
-        return x.to(torch.float32), y.to(torch.float32)
+            y = torch.randn(self.y_shape, device=self.device)
+        return x, y
