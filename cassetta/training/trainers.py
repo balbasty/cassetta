@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from cassetta.core.utils import (
     refresh_experiment_dir,
     delete_files_with_pattern,
+    find_checkpoint
     )
 from cassetta.io.modules import (
     LoadableModule,
@@ -215,7 +216,7 @@ class Trainer(LoadableModule):
         return component_state_dict
 
     @classmethod
-    def load(cls, state):
+    def load(cls, state, checkpoint_type: str = 'best'):
         """
         Loads a Trainer object from a saved state, reconstructing models and
         optimizers based on the saved configuration and state dicts.
@@ -223,8 +224,12 @@ class Trainer(LoadableModule):
         Parameters
         ----------
         state : dict or str
-            A dictionary containing the Trainer state, or a path to a file
-            from which the state can be loaded.
+            A dictionary containing the Trainer state, a path to a .pt file,
+            or the directory of the experiment `version_*` from which the state
+            can be loaded.
+        checkpoint_type : str, optional
+            The type of checkpoint to find, if `state` is a path. Options
+            are either "last" or "best". Defaults to "best".
 
         Returns
         -------
@@ -233,6 +238,8 @@ class Trainer(LoadableModule):
             trainer state.
         """
         if not isinstance(state, dict):
+            if not state.endswith(".pt"):
+                state = find_checkpoint(state, checkpoint_type)
             state = torch.load(state, weights_only=True)
 
         # Init an instance of `Trainer`
