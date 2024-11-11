@@ -338,18 +338,18 @@ class StateMixin:
     ```python
     # Make data container subclass
     @dataclass
-    class TrainerState(StateMixin):
+    class TrainingState(StateMixin):
         epochs : int = 25
 
     # Build state data container object
-    state = TrainerState()
+    state = TrainingState()
 
     # Save state data container object
     state.save_state_dict('path/to/state.pth')
 
     # Load state
-    loaded_state = TrainerState()
-    loaded_state.load('trainer_state.pth)
+    loaded_state = TrainingState()
+    loaded_state.load('training_state.pth)
     ```
     """
 

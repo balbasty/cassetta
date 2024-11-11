@@ -69,9 +69,9 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
     trainer.train_epoch()
 
     # Capture original trainer state
-    original_epoch = trainer.trainer_state.current_epoch
-    original_step = trainer.trainer_state.current_step
-    original_train_loss = trainer.trainer_state.epoch_train_loss
+    original_epoch = trainer.training_state.current_epoch
+    original_step = trainer.training_state.current_step
+    original_train_loss = trainer.training_state.epoch_train_loss
     original_model_state = {
         k: v.clone() for k, v in trainer.models["main"].state_dict().items()
     }
@@ -86,13 +86,13 @@ def test_save_and_load_trainer(temp_dir, trainer, dummy_dataset):
 
     # Verify trainer state
     assert (
-        loaded_trainer.trainer_state.current_epoch == original_epoch
+        loaded_trainer.training_state.current_epoch == original_epoch
     ), "Current epoch does not match after loading."
     assert (
-        loaded_trainer.trainer_state.current_step == original_step
+        loaded_trainer.training_state.current_step == original_step
     ), "Current step does not match after loading."
     assert (
-        pytest.approx(loaded_trainer.trainer_state.epoch_train_loss, 1e-5)
+        pytest.approx(loaded_trainer.training_state.epoch_train_loss, 1e-5)
     ) == original_train_loss, "Epoch train loss does not match after loading."
 
     # Verify model parameters

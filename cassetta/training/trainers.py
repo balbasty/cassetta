@@ -57,7 +57,7 @@ class TrainerConfig(StateMixin):
 
 
 @dataclass
-class TrainerState(StateMixin):
+class TrainingState(StateMixin):
     """
     Tracks the current state of the training process.
 
@@ -101,7 +101,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
         as keys and optimizer instances as values.
     losses : dict
         A dictionary containing registered loss functions for each model.
-    trainer_state : TrainerState
+    training_state : TrainingState
         An object that tracks the training state, including metrics such as
         the best validation loss.
 
@@ -139,7 +139,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
         """
         super().__init__()
         self.trainer_config = trainer_config
-        self.trainer_state = TrainerState()
+        self.training_state = TrainingState()
         self.models = LoadableModuleDict()
         self.optimizers = {}
         self.losses = LoadableModuleDict()
@@ -189,7 +189,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
         state_dict["optimizers"] = self._get_components_state_dict(
             self.optimizers
         )
-        state_dict["trainer_state"] = self.trainer_state.serialize()
+        state_dict["training_state"] = self.training_state.serialize()
         state_dict['trainer_config'] = self.trainer_config.serialize()
         return state_dict
 
@@ -248,9 +248,9 @@ class LoadableTrainer(LoadableModule, save_args=False):
         # TODO: This is not elegant. Figure out more elegant way to load.
         obj.models = LoadableMixin.load(state)
         obj.losses = LoadableMixin.load(state['losses'])
-        # Unpacking `trainer_state` into the obj
-        obj.trainer_state = TrainerState().load_state_dict(
-            state['trainer_state']
+        # Unpacking `training_state` into the obj
+        obj.training_state = TrainingState().load_state_dict(
+            state['training_state']
         )
         obj.trainer_config = TrainerConfig(**state['trainer_config'])
 
@@ -258,7 +258,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
         obj = cls._optimizers_from_state_dict(cls, obj, state)
         # Resetting the best eval loss so fine tuning isn't expected to perform
         # as well.
-        obj.trainer_state.best_eval_loss = float('inf')
+        obj.training_state.best_eval_loss = float('inf')
 
         return obj
 
@@ -441,7 +441,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         # Calculate loss
         _loss = self.loss(y, outputs)
         # Update trainer state
-        self.trainer_state.epoch_train_loss += _loss.item()
+        self.training_state.epoch_train_loss += _loss.item()
         # Optionally log.
         # TODO: incorporate logger
         if self.trainer_config.logging_verbosity >= 1:
@@ -451,7 +451,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         # Step optimizer
         self.optimizer.step()
         # Increment current step
-        self.trainer_state.current_step += 1
+        self.training_state.current_step += 1
 
     def eval_step(self, minibatch):
         """
@@ -477,7 +477,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
             outputs = self.model(x)
             # Calculate los`s
             _loss = self.loss(y, outputs)
-            self.trainer_state.epoch_eval_loss += _loss.item()
+            self.training_state.epoch_eval_loss += _loss.item()
 
     def log_loss(self, name, value):
         raise NotImplementedError
@@ -501,9 +501,9 @@ class SimpleSupervisedTrainer(LoadableTrainer):
             The current time step for logging the metric.
         """
         if timestep == 'epoch':
-            timestep = self.trainer_state.current_epoch
+            timestep = self.training_state.current_epoch
         elif timestep == 'step':
-            timestep = self.trainer_state.current_step
+            timestep = self.training_state.current_step
         else:
             raise f'Invalid timestep {timestep}. Must be "step" or "epoch".'
 
@@ -521,15 +521,15 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         self.model.train()
         # For sanity check dataset, must load minibatches like this or else
         # it will go to infinity.
-        self.trainer_state.epoch_train_loss = 0
+        self.training_state.epoch_train_loss = 0
         for minibatch in self.train_loader:
             self.train_step(minibatch)
         # Average train epoch loss
-        self.trainer_state.epoch_train_loss /= len(self.train_loader)
+        self.training_state.epoch_train_loss /= len(self.train_loader)
         if self.trainer_config.logging_verbosity >= 1:
             self.log_metric(
                 'train_epoch',
-                self.trainer_state.epoch_train_loss,
+                self.training_state.epoch_train_loss,
                 'epoch')
         if self.trainer_config.logging_verbosity >= 2:
             self.log_parameter_hist()
@@ -541,25 +541,25 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         # Set model to eval mode
         self.model.eval()
         # Reset eval loss
-        self.trainer_state.epoch_eval_loss = 0
+        self.training_state.epoch_eval_loss = 0
         # Iterate through eval set
         for minibatch in self.eval_loader:
             self.eval_step(minibatch)
         # Average eval epoch loss
-        self.trainer_state.epoch_eval_loss /= len(self.eval_loader)
+        self.training_state.epoch_eval_loss /= len(self.eval_loader)
         # Optionally log to tensorboard
         if self.trainer_config.logging_verbosity >= 1:
             self.log_metric(
                 'eval_epoch',
-                self.trainer_state.epoch_eval_loss,
+                self.training_state.epoch_eval_loss,
                 'epoch')
         # If this is best checkpoint...
-        if self.trainer_state.epoch_eval_loss < (
-            self.trainer_state.best_eval_loss
+        if self.training_state.epoch_eval_loss < (
+            self.training_state.best_eval_loss
                 ):
 
-            self.trainer_state.best_eval_loss = (
-                self.trainer_state.epoch_eval_loss
+            self.training_state.best_eval_loss = (
+                self.training_state.epoch_eval_loss
                 )
 
             self.save_checkpoint('best')
@@ -580,7 +580,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
             if self.eval_loader:
                 self.eval_epoch()
             # Increment current epoch
-            self.trainer_state.current_epoch += 1
+            self.training_state.current_epoch += 1
 
     def register_model(self, name, model):
         super().register_model(name, model)
@@ -609,13 +609,13 @@ class SimpleSupervisedTrainer(LoadableTrainer):
             self.writer.add_histogram(
                 name,
                 param.to(torch.uint32),
-                self.trainer_state.current_epoch
+                self.training_state.current_epoch
                 )
             if param.grad is not None:
                 self.writer.add_histogram(
                     tag=f'{name}.grad',
                     values=param.grad,
-                    global_step=self.trainer_state.current_epoch
+                    global_step=self.training_state.current_epoch
                 )
 
     def save_checkpoint(self, type: str = 'last'):
@@ -629,10 +629,10 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         if type == 'last':
             delete_files_with_pattern(checkpoint_dir, '*last*')
             self.save(
-                f'{checkpoint_dir}/last-{self.trainer_state.current_epoch}.pt'
+                f'{checkpoint_dir}/last-{self.training_state.current_epoch}.pt'
                 )
         if type == 'best':
             delete_files_with_pattern(checkpoint_dir, '*best*')
             self.save(
-                f'{checkpoint_dir}/best-{self.trainer_state.current_epoch}.pt'
+                f'{checkpoint_dir}/best-{self.training_state.current_epoch}.pt'
                 )
