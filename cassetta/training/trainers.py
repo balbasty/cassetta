@@ -3,7 +3,7 @@ import importlib
 from torch import nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
-from typing import Union, Optional
+from typing import Union
 from dataclasses import dataclass
 from cassetta.core.utils import (
     refresh_experiment_dir,
@@ -242,7 +242,9 @@ class Trainer(LoadableModule):
         obj.models = LoadableMixin.load(state)
         obj.losses = LoadableMixin.load(state['losses'])
         # Unpacking `trainer_state` into the obj
-        obj.trainer_state = TrainerState(**state.get('trainer_state', {}))
+        obj.trainer_state = TrainerState().load_state_dict(
+            state['trainer_state']
+        )
         obj.trainer_config = TrainerConfig(**state['trainer_config'])
 
         # Init optimizers with saved model weights and OG optimizer params.
