@@ -164,12 +164,4 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
-models/version_1/events.out.tfevents.1726882640.darwin.nmr.mgh.harvard.edu.1222701.0
-models/version_1/events.out.tfevents.1728065178.darwin.nmr.mgh.harvard.edu.1873468.0
-models/version_1/events.out.tfevents.1728065238.darwin.nmr.mgh.harvard.edu.1873468.1
-models/version_1/events.out.tfevents.1728067623.darwin.nmr.mgh.harvard.edu.1873468.2
-models/version_1/events.out.tfevents.1728068693.darwin.nmr.mgh.harvard.edu.1876709.0
-models/version_1/events.out.tfevents.1728068712.darwin.nmr.mgh.harvard.edu.1876709.1
-models/version_1/events.out.tfevents.1728069791.darwin.nmr.mgh.harvard.edu.1879110.0
-models/version_1/events.out.tfevents.1728070780.darwin.nmr.mgh.harvard.edu.1880375.0
-models/version_1/events.out.tfevents.1728070902.darwin.nmr.mgh.harvard.edu.1880647.0
+*events.out.tfevents*
