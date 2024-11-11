@@ -11,25 +11,12 @@ import pytest
 import torch
 import torch.nn as nn
 import tempfile
-from torch.utils.data import Dataset
+from cassetta.datasets.supervised import DummySupervisedDataset
 from cassetta.io.modules import make_loadable
 from cassetta.models.segmentation import SegNet
 from cassetta.backbones.unet import UNet
 from cassetta.optimizers.adam import LoadableAdam
 from cassetta.training.trainers import (TrainerConfig, BasicSupervisedTrainer)
-
-
-class DummyDataset(Dataset):
-    def __init__(self, size=20):
-        self.size = size
-        self.data = torch.randn(size, 1, 32, 32, 32)
-        self.targets = torch.randn(size, 1, 32, 32, 32)
-
-    def __len__(self):
-        return self.size
-
-    def __getitem__(self, idx):
-        return self.data[idx], self.targets[idx]
 
 
 @pytest.fixture
@@ -41,7 +28,7 @@ def temp_dir():
 
 @pytest.fixture
 def dummy_dataset():
-    return DummyDataset(size=20)
+    return DummySupervisedDataset()
 
 
 @pytest.fixture
