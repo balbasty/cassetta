@@ -181,8 +181,6 @@ class Trainer(LoadableModule):
         dict
             Dictionary containing serialized object.
         """
-        state_dict = super().serialize()
-
         # Serialize all models (LoadableModuleDict handles this nicely :))
         state_dict = self.models.serialize()
         state_dict["losses"] = self._get_components_state_dict(
@@ -245,7 +243,7 @@ class Trainer(LoadableModule):
         # TODO: This is not elegant. Figure out more elegant way to load.
         obj.models = LoadableMixin.load(state)
         obj.losses = LoadableModuleDict({
-            name: LoadableMixin.load(state['losses'][name]) 
+            name: LoadableMixin.load(state['losses'][name])
             for name in state['losses']
         })
         # Unpacking `trainer_state` into the obj
