@@ -122,7 +122,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
         model=None,
         optimizer=None,
         loss=None,
-        trainer_config: TrainerConfig = None,
+        config: TrainerConfig = None,
     ):
         """
         Initializes the Trainer with optional model, optimizer, and loss.
@@ -138,7 +138,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
             The loss function associated with the main model, by default None.
         """
         super().__init__()
-        self.trainer_config = trainer_config
+        self.config = config
         self.training_state = TrainingState()
         self.models = LoadableModuleDict()
         self.optimizers = {}
@@ -190,7 +190,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
             self.optimizers
         )
         state_dict["training_state"] = self.training_state.serialize()
-        state_dict['trainer_config'] = self.trainer_config.serialize()
+        state_dict['config'] = self.config.serialize()
         return state_dict
 
     def _get_components_state_dict(self, component):
@@ -252,7 +252,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
         obj.training_state = TrainingState().load_state_dict(
             state['training_state']
         )
-        obj.trainer_config = TrainerConfig(**state['trainer_config'])
+        obj.config = TrainerConfig(**state['config'])
 
         # Init optimizers with saved model weights and OG optimizer params.
         obj = cls._optimizers_from_state_dict(cls, obj, state)
@@ -395,7 +395,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         if dataset is not None:
             seed = torch.Generator().manual_seed(42)
             train_set_size = round(
-                len(dataset) * self.trainer_config.train_to_val
+                len(dataset) * self.config.train_to_val
             )
             val_set_size = len(dataset) - train_set_size
 
@@ -404,15 +404,15 @@ class SimpleSupervisedTrainer(LoadableTrainer):
             )
             self.train_loader = DataLoader(
                         dataset=train_set,
-                        batch_size=self.trainer_config.batch_size,
+                        batch_size=self.config.batch_size,
                         shuffle=True,
-                        num_workers=self.trainer_config.num_workers
+                        num_workers=self.config.num_workers
                         )
             self.eval_loader = DataLoader(
                 dataset=eval_set,
                 batch_size=1,
                 shuffle=False,
-                num_workers=self.trainer_config.num_workers
+                num_workers=self.config.num_workers
             )
 
     def train_step(self, minibatch):
@@ -444,7 +444,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         self.training_state.epoch_train_loss += _loss.item()
         # Optionally log.
         # TODO: incorporate logger
-        if self.trainer_config.logging_verbosity >= 1:
+        if self.config.logging_verbosity >= 1:
             self.log_metric('train', _loss.item(), 'step')
         # Backward pass
         _loss.backward()
@@ -526,12 +526,12 @@ class SimpleSupervisedTrainer(LoadableTrainer):
             self.train_step(minibatch)
         # Average train epoch loss
         self.training_state.epoch_train_loss /= len(self.train_loader)
-        if self.trainer_config.logging_verbosity >= 1:
+        if self.config.logging_verbosity >= 1:
             self.log_metric(
                 'train_epoch',
                 self.training_state.epoch_train_loss,
                 'epoch')
-        if self.trainer_config.logging_verbosity >= 2:
+        if self.config.logging_verbosity >= 2:
             self.log_parameter_hist()
 
     def eval_epoch(self):
@@ -548,7 +548,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         # Average eval epoch loss
         self.training_state.epoch_eval_loss /= len(self.eval_loader)
         # Optionally log to tensorboard
-        if self.trainer_config.logging_verbosity >= 1:
+        if self.config.logging_verbosity >= 1:
             self.log_metric(
                 'eval_epoch',
                 self.training_state.epoch_eval_loss,
@@ -567,15 +567,15 @@ class SimpleSupervisedTrainer(LoadableTrainer):
 
     def train(self):
         """
-        Train the model for `self.trainer_config.nb_epochs` epochs.
+        Train the model for `self.config.nb_epochs` epochs.
         """
-        if self.trainer_config.logging_verbosity >= 1:
-            self.writer = SummaryWriter(self.trainer_config.experiment_dir)
-            if self.trainer_config.logging_verbosity >= 2:
+        if self.config.logging_verbosity >= 1:
+            self.writer = SummaryWriter(self.config.experiment_dir)
+            if self.config.logging_verbosity >= 2:
                 self.log_model_graph()
-        if self.trainer_config.refresh_experiment_dir:
-            refresh_experiment_dir(self.trainer_config.experiment_dir)
-        for i in range(self.trainer_config.nb_epochs):
+        if self.config.refresh_experiment_dir:
+            refresh_experiment_dir(self.config.experiment_dir)
+        for i in range(self.config.nb_epochs):
             self.train_epoch()
             if self.eval_loader:
                 self.eval_epoch()
@@ -584,7 +584,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
 
     def register_model(self, name, model):
         super().register_model(name, model)
-        if self.trainer_config.logging_verbosity >= 2:
+        if self.config.logging_verbosity >= 2:
             self.log_model_graph()
 
     def log_model_graph(self) -> SummaryWriter:
@@ -625,7 +625,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         type : str
             Type of checkpoint to save {`last`, `best`}
         """
-        checkpoint_dir = f'{self.trainer_config.experiment_dir}/checkpoints'
+        checkpoint_dir = f'{self.config.experiment_dir}/checkpoints'
         if type == 'last':
             delete_files_with_pattern(checkpoint_dir, '*last*')
             self.save(

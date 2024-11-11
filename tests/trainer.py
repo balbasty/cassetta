@@ -32,7 +32,7 @@ def dummy_dataset():
 
 
 @pytest.fixture
-def trainer_config(temp_dir):
+def config(temp_dir):
     return TrainerConfig(
         experiment_dir=temp_dir,
         nb_epochs=2,
@@ -44,13 +44,13 @@ def trainer_config(temp_dir):
 
 
 @pytest.fixture
-def trainer(trainer_config, dummy_dataset):
+def trainer(config, dummy_dataset):
     loss_fn = make_loadable(nn.MSELoss)
     loss_fn = loss_fn()
     return SimpleSupervisedTrainer(
         loss=loss_fn,
         dataset=dummy_dataset,
-        trainer_config=trainer_config
+        config=config
     )
 
 
