@@ -80,8 +80,8 @@ def make_optimizer(optim: OptimType, *args, **kwargs):
                 except Exception:
                     pass
         optim = import_fullname(optim)
-    if not isinstance(optim, optimizer):
+    if not isinstance(optim, Optimizer):
         optim = optim(*args, **kwargs)
-    if not isinstance(optim, optimizer):
+    if not isinstance(optim, Optimizer):
         raise ValueError('Instantiated object is not an optimizer')
     return optim
