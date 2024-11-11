@@ -203,7 +203,11 @@ class LoadableMixin:
                 args = LoadableMixin._nested_unserialize(state["args"])
                 kwargs = LoadableMixin._nested_unserialize(state["kwargs"])
                 obj = klass(*args, **kwargs)
-                obj.load_state_dict(state["state"])
+                # For certain circumstances such as LoadableModuleDict, there
+                # will not be a "state" attribute, as we save the modules in
+                # args.
+                if "state" in state:
+                    obj.load_state_dict(state["state"])
                 return obj
             else:
                 return type(obj)(
@@ -473,7 +477,6 @@ class LoadableSequential(LoadableMixin, nn.Sequential):
             "qualname": type(self).__qualname__,
             "args": [module.serialize() for module in self],
             "kwargs": getattr(self, "_kwargs", dict()),
-            "state": self.state_dict(),
         }
 
 
@@ -503,7 +506,6 @@ class LoadableModuleList(LoadableMixin, nn.ModuleList):
             "qualname": type(self).__qualname__,
             "args": [[module.serialize() for module in self]],
             "kwargs": getattr(self, "_kwargs", dict()),
-            "state": self.state_dict(),
         }
 
 
@@ -530,7 +532,6 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
                 key: module.serialize() for key, module in self.items()
                 }],
             "kwargs": getattr(self, "_kwargs", dict()),
-            "state": self.state_dict(),
         }
 
 
