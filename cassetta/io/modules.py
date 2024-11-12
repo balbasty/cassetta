@@ -11,7 +11,6 @@ __all__ = [
     "validate_loadable_module",
     "validate_loadable_modules",
 ]
-import json
 import torch
 import dataclasses
 from torch import nn
@@ -384,6 +383,7 @@ class StateMixin:
                 with open(state, "r") as f:
                     state = yaml.load(f, Loader=yaml.Loader)
             elif path.suffix == ".json":
+                import json
                 with open(state, "r") as f:
                     state = json.load(f)
             else:
@@ -430,6 +430,7 @@ class StateMixin:
             with open(path, "w") as f:
                 yaml.dump(state, f)
         elif path.suffix == ".json":
+            import json
             with open(path, "w") as f:
                 json.dump(state, f)
         else:
