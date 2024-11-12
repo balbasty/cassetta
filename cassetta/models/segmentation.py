@@ -70,10 +70,13 @@ class SegNet(LoadableMixin, nn.Sequential):
         opt_backbone : dict
             Parameters of the backbone (if backbone is not pre-instantiated)
         """
+        # Backbone logic
         if isinstance(backbone, str):
             backbone_kls = getattr(backbones, backbone)
             backbone = backbone_kls(ndim, **(opt_backbone or {}))
+
         activation = make_activation(activation)
+
         feat = ConvBlock(
             ndim,
             inp_channels=inp_channels,
@@ -81,6 +84,7 @@ class SegNet(LoadableMixin, nn.Sequential):
             kernel_size=kernel_size,
             activation=None,
         )
+
         pred = ConvBlock(
             ndim,
             inp_channels=backbone.out_channels,
