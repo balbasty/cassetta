@@ -19,6 +19,7 @@ from torch.nn import Module
 import_submodules([
     'base',
     'segmentation',
+    'regression'
 ], __name__, __all__, True)
 
 

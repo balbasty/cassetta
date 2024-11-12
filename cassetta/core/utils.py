@@ -8,9 +8,15 @@ __all__ = [
     'torch_version',
     'to_torch_dtype',
     'import_submodules',
+    'refresh_experiment_dir',
+    'delete_files_with_pattern',
+    'find_checkpoint'
 ]
+import glob
+import os
 import numbers
 import numpy as np
+import shutil
 import torch
 from torch import Tensor
 from types import GeneratorType as generator
@@ -311,3 +317,141 @@ def import_submodules(submodules, module, all=None, import_into=False):
                 setattr(parent, child_obj_name, getattr(child, child_obj_name))
                 if all is not None:
                     all += [child_obj_name]
+
+
+def refresh_experiment_dir(experiment_dir: str) -> None:
+    """
+    Check if the directory has contents, and if so, delete them recursively.
+
+    Parameters
+    ----------
+    dir_path : str
+        Path to the directory to be checked and cleared.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the directory does not exist.
+    """
+    if not os.path.exists(experiment_dir):
+        raise FileNotFoundError(
+            f"The directory {experiment_dir} does not exist."
+            )
+
+    # Check if directory is not empty
+    if os.listdir(experiment_dir):
+        # Recursively remove all contents of the directory
+        for item in os.listdir(experiment_dir):
+            item_path = os.path.join(experiment_dir, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)  # Remove directory and its contents
+            else:
+                os.remove(item_path)  # Remove file
+        print(f"All contents of {experiment_dir} have been deleted.")
+    else:
+        print(f"The directory {experiment_dir} is already empty.")
+    os.mkdir(f'{experiment_dir}/predictions')
+    os.mkdir(f'{experiment_dir}/checkpoints')
+
+
+def delete_files_with_pattern(directory, pattern):
+    """
+    Deletes all files in the specified directory that match the given pattern.
+
+    Parameters
+    ----------
+    directory : str
+        The path to the directory.
+    pattern : str
+        The glob pattern to match files.
+
+    Example
+    -------
+    delete_files_with_pattern('/path/to/directory', '*last*')
+    """
+    # Construct the full search pattern
+    search_pattern = os.path.join(directory, pattern)
+
+    # Retrieve a list of files matching the pattern
+    files_to_delete = glob.glob(search_pattern)
+
+    if not files_to_delete:
+        pass
+
+    for file_path in files_to_delete:
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error deleting file {file_path}: {e}")
+
+
+def find_files_with_pattern(directory, pattern):
+    """
+    Search for files in the specified directory that match the given grep
+    pattern.
+
+    Parameters
+    ----------
+    directory : str
+        The path to the directory to search.
+    pattern : str
+        The grep pattern to search for.
+
+    Returns
+    -------
+    paths : list
+        A list of file paths that match the pattern.
+    """
+
+    # Check if the directory exists
+    if not os.path.exists(directory):
+        raise FileNotFoundError(f"The directory '{directory}' does not exist.")
+
+    # Check if the path is a directory
+    if not os.path.isdir(directory):
+        raise NotADirectoryError(f"The path '{directory}' is not a directory.")
+
+    # Construct the search pattern
+    search_pattern = os.path.join(directory, pattern)
+
+    # Use glob to find files matching the pattern
+    matching_files = glob.glob(search_pattern)
+
+    return matching_files
+
+
+def find_checkpoint(
+    experiment_dir: str,
+    checkpoint_type: str = "best"
+) -> Optional[str]:
+    """
+    Find the checkpoint file in the specified experiment directory.
+
+    Parameters
+    ----------
+    experiment_dir : str
+        The path to the directory of the experiment.
+    checkpoint_type : str, optional
+        The type of checkpoint to find, either "last" or "best".
+        Defaults to "best".
+
+    Returns
+    -------
+    Optional[str]
+        The full path to the checkpoint file if found, otherwise None.
+
+    Raises
+    ------
+    ValueError
+        If checkpoint_type is not "last" or "best".
+    """
+    if checkpoint_type not in {"last", "best"}:
+        raise ValueError("checkpoint_type must be 'last' or 'best'")
+
+    # Define the pattern for file searching based on checkpoint type
+    pattern = f"{checkpoint_type}-*.pt"
+    # Search for files in the folder matching the pattern
+    matches = glob.glob(os.path.join(experiment_dir, 'checkpoints', pattern))
+
+    # If a match is found, return the first (there should only be one)
+    return matches[0] if matches else None
