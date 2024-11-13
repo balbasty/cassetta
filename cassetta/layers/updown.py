@@ -6,11 +6,17 @@ __all__ = [
     'DownPool',
     'UpPool',
 ]
+# externals
 from torch import nn
 from torch import Tensor
-from typing import Optional
+
+# internals
 from cassetta.core.utils import ensure_list
-from cassetta.core.typing import OneOrSeveral, InterpolationType, BoundType
+from cassetta.core.typing import (
+    OneOrSeveral, InterpolationType, BoundType, Optional
+)
+
+# local
 from .simple import DoNothing
 from .interpol import Resize
 

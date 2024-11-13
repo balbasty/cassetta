@@ -4,3 +4,6 @@ requires = [
   "wheel",
   "versioneer[toml]==0.29",
 ]
+
+[tool.ruff]
+typing-modules = ["cibuildwheel.typing"]

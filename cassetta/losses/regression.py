@@ -3,7 +3,7 @@ __all__ = [
 ]
 
 from torch.nn import MSELoss
-from cassetta.io.modules import LoadableMixin
+from cassetta.io.loadable import LoadableMixin
 
 
 class LoadableMSE(LoadableMixin, MSELoss):
@@ -11,8 +11,4 @@ class LoadableMSE(LoadableMixin, MSELoss):
     A loadable variant of PyTorch's MSE loss.
     [`torch.nn`][`torch.nn.MSELoss`]
     """
-    def __init__(self):
-        """
-        Initialize the LoadableMSE loss function.
-        """
-        super().__init__()
+    ...

@@ -16,6 +16,8 @@ __all__ = []
 from cassetta.core.utils import import_submodules
 
 import_submodules([
+    'loadable',
     'modules',
+    'optim',
     'utils',
 ], __name__, __all__, True)

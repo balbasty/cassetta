@@ -1,117 +1,22 @@
 __all__ = [
     "LoadableMixin",
-    "LoadableModule",
-    "LoadableModuleList",
-    "LoadableModuleDict",
-    "LoadableOptimizer",
-    "LoadableSequential",
     "DynamicLoadableMixin",
-    "load_module",
+    "load",
     "make_loadable",
-    "validate_loadable_module",
-    "validate_loadable_modules",
 ]
-import torch
+# stdlib
 import dataclasses
-from torch import nn
 from pathlib import Path
-from typing import Union, IO
 from warnings import warn
 from inspect import signature
-from torch import optim
-from .utils import import_qualname
 
+# externals
+import torch
+from torch import nn
 
-def validate_loadable_module(module):
-    """
-    Validate if a single module is an instance of LoadableMixin.
-
-    Parameters
-    ----------
-    module : nn.Module
-        The module to check.
-
-    Raises
-    ------
-    TypeError
-        If the module is not an instance of LoadableMixin.
-    """
-    if not isinstance(module, LoadableMixin):
-        raise TypeError(
-            "Only Loadable modules can be added."
-            f" '{module.__class__.__name__}' is not a LoadableMixin."
-            )
-
-
-def validate_loadable_modules(modules):
-    """
-    Check if all modules in a list are instances of LoadableMixin.
-
-    Parameters
-    ----------
-    modules : iterable of nn.Module
-        The collection of modules to check.
-
-    Raises
-    ------
-    TypeError
-        If any module is not an instance of LoadableMixin.
-    """
-    for module in modules:
-        validate_loadable_module(module)
-
-
-def load_module(model_state: Union[str, IO]) -> nn.Module:
-    """
-    Load and build a model/module from a file.
-
-    Parameters
-    ----------
-    model_state : file_like or dict
-        Model state, or path to model file, or opened file object.
-
-    Returns
-    -------
-    model : nn.Module
-        Instantiated model
-    """
-    return LoadableMixin.load(model_state)
-
-
-def make_loadable(klass):
-    """
-    Create a loadable variant of an existing
-    [`nn.Module`][torch.nn.Module] subclass.
-
-    Example
-    -------
-    ```python
-    mymodel = make_loadable(nn.Sequential)(
-        nn.Linear(1, 16),
-        nn.ReLU(),
-        nn.Linear(16, 1),
-    )
-    ```
-
-    Parameters
-    ----------
-    klass : type
-        A [`nn.Module`][torch.nn.Module] subclass
-
-    Returns
-    -------
-    loadable_klass : type
-        A `(LoadableMixin, klass)` subclass.
-    """
-
-    class DynamicModule(DynamicLoadableMixin, klass):
-        @DynamicLoadableMixin.save_args
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
-    DynamicModule.__name__ = "Loadable" + klass.__name__
-    DynamicModule.__qualname__ = "Loadable" + klass.__name__
-    return DynamicModule
+# internals
+from cassetta.io.utils import import_qualname
+from cassetta.core.typing import Union, IO, Type
 
 
 class LoadableMixin:
@@ -157,6 +62,12 @@ class LoadableMixin:
     __version__ = "1.0"
     """Current version of the LoadableMixin format"""
 
+    def __init_subclass__(cls, /, save_args: bool = True, **kwargs):
+        # Implement `save_args` type keyword
+        super().__init_subclass__(**kwargs)
+        if save_args:
+            cls.__init__ = cls._save_args(cls.__init__)
+
     @staticmethod
     def _nested_serialize(obj):
         if isinstance(obj, nn.Module):
@@ -180,6 +91,7 @@ class LoadableMixin:
 
     @staticmethod
     def _nested_unserialize(obj, *, klass=None):
+        _nested_unserialize = LoadableMixin._nested_unserialize
         if isinstance(obj, dict):
             if "cassetta.Loadable" in obj:
                 state = obj
@@ -196,21 +108,21 @@ class LoadableMixin:
                             "from module",
                             state["module"],
                         )
-                if not isinstance(klass, LoadableMixin):
+                if not issubclass(klass, LoadableMixin):
                     klass = make_loadable(klass)
-                args = LoadableMixin._nested_unserialize(state["args"])
-                kwargs = LoadableMixin._nested_unserialize(state["kwargs"])
+                args = _nested_unserialize(state.get("args", []))
+                kwargs = _nested_unserialize(state.get("kwargs", {}))
                 obj = klass(*args, **kwargs)
-                # For certain circumstances such as LoadableModuleDict, there
-                # will not be a "state" attribute, as we save the modules in
-                # args.
-                if "state" in state:
+                # For certain circumstances such as LoadableModuleDict,
+                # there will not be a "state" attribute, as we save the
+                # modules in args.
+                if "state" in state and hasattr(obj, "load_state_dict"):
                     obj.load_state_dict(state["state"])
                 return obj
             else:
                 return type(obj)(
                     {
-                        key: LoadableMixin._nested_unserialize(value)
+                        key: _nested_unserialize(value)
                         for key, value in obj.items()
                     }
                 )
@@ -219,7 +131,7 @@ class LoadableMixin:
         return obj
 
     @classmethod
-    def save_args(cls, init):
+    def _save_args(cls, init):
         """
         A decorator for `__init__` methods, that saves their arguments.
 
@@ -259,14 +171,16 @@ class LoadableMixin:
         klass = type(self)
         if DynamicLoadableMixin in klass.__bases__:
             klass = klass.__bases__[-1]
-        return {
+        loadable_state = {
             "cassetta.Loadable": LoadableMixin.__version__,
             "module": klass.__module__,
             "qualname": klass.__qualname__,
             "args": getattr(self, "_args", tuple()),
             "kwargs": getattr(self, "_kwargs", dict()),
-            "state": self.state_dict(),
         }
+        if hasattr(self, "state_dict"):
+            loadable_state["state"] = self.state_dict()
+        return loadable_state
 
     def save(self, path: Union[str, IO]) -> None:
         """
@@ -287,7 +201,7 @@ class LoadableMixin:
         torch.save(self.serialize(), path)
 
     @classmethod
-    def load(cls, loadable_state: Union[str, IO]) -> nn.Module:
+    def load(cls, loadable_state: Union[str, IO]) -> "LoadableMixin":
         """
         Load and build a model/module from a file.
 
@@ -305,6 +219,66 @@ class LoadableMixin:
             loadable_state = torch.load(loadable_state)
         hint = cls if cls is not LoadableMixin else None
         return cls._nested_unserialize(loadable_state, klass=hint)
+
+
+def load(model_state: Union[str, IO]) -> nn.Module:
+    """
+    Load and build a model/module from a file.
+
+    Parameters
+    ----------
+    model_state : file_like or dict
+        Model state, or path to model file, or opened file object.
+
+    Returns
+    -------
+    model : nn.Module
+        Instantiated model
+    """
+    return LoadableMixin.load(model_state)
+
+
+class DynamicLoadableMixin(LoadableMixin):
+    """
+    A mixin for non-static types generated by
+    [`make_loadable`](cassetta.io.modules.make_loadable)
+    """
+
+    pass
+
+
+def make_loadable(klass, save_args: bool = True) -> Type[DynamicLoadableMixin]:
+    """
+    Create a loadable variant of an existing
+    [`nn.Module`][torch.nn.Module] subclass.
+
+    Example
+    -------
+    ```python
+    mymodel = make_loadable(nn.Sequential)(
+        nn.Linear(1, 16),
+        nn.ReLU(),
+        nn.Linear(16, 1),
+    )
+    ```
+
+    Parameters
+    ----------
+    klass : type
+        A [`nn.Module`][torch.nn.Module] subclass
+
+    Returns
+    -------
+    loadable_klass : type
+        A `(LoadableMixin, klass)` subclass.
+    """
+
+    class DynamicModule(DynamicLoadableMixin, klass, save_args=save_args):
+        ...
+
+    DynamicModule.__name__ = "Loadable" + klass.__name__
+    DynamicModule.__qualname__ = "Loadable" + klass.__name__
+    return DynamicModule
 
 
 class StateMixin:
@@ -435,129 +409,3 @@ class StateMixin:
                 json.dump(state, f)
         else:
             torch.save(state, path)
-
-
-class DynamicLoadableMixin(LoadableMixin):
-    """
-    A mixin for non-static types generated by
-    [`make_loadable`](cassetta.io.modules.make_loadable)
-    """
-
-    pass
-
-
-class LoadableModule(LoadableMixin, nn.Module):
-    """A Loadable variant of [`nn.Module`][torch.nn.Module]"""
-
-    @LoadableMixin.save_args
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-class LoadableSequential(LoadableMixin, nn.Sequential):
-    """A Loadable variant of [`nn.Sequential`][torch.nn.Sequential]"""
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        validate_loadable_modules(self)
-
-    def append(self, module):
-        validate_loadable_module(module)
-        super().append(module)
-
-    def extend(self, modules):
-        validate_loadable_modules(modules)
-        super().extend(modules)
-
-    def insert(self, index, module):
-        validate_loadable_module(module)
-        super().insert(index, module)
-
-    def serialize(self):
-        return {
-            "cassetta.Loadable": LoadableMixin.__version__,
-            "module": type(self).__module__,
-            "qualname": type(self).__qualname__,
-            "args": [module.serialize() for module in self],
-            "kwargs": getattr(self, "_kwargs", dict()),
-        }
-
-
-class LoadableModuleList(LoadableMixin, nn.ModuleList):
-    """A Loadable variant of [`nn.ModuleList`][torch.nn.ModuleList]"""
-
-    def __init__(self, modules=None):
-        super().__init__(modules)
-        validate_loadable_modules(self)
-
-    def append(self, module):
-        validate_loadable_module(module)
-        super().append(module)
-
-    def extend(self, modules):
-        validate_loadable_modules(modules)
-        super().extend(modules)
-
-    def insert(self, index, module):
-        validate_loadable_module(module)
-        super().insert(index, module)
-
-    def serialize(self):
-        return {
-            "cassetta.Loadable": LoadableMixin.__version__,
-            "module": type(self).__module__,
-            "qualname": type(self).__qualname__,
-            "args": [[module.serialize() for module in self]],
-            "kwargs": getattr(self, "_kwargs", dict()),
-        }
-
-
-class LoadableModuleDict(LoadableMixin, nn.ModuleDict):
-    """A Loadable variant of [`nn.ModuleDict`][torch.nn.ModuleDict]"""
-
-    def __init__(self, modules=None):
-        super().__init__(modules)
-        # Ensure all modules are loadable
-        for key, module in self.items():
-            if not isinstance(module, LoadableMixin):
-                raise TypeError(f"Module '{key}' must be Loadable")
-
-    def __setitem__(self, key, module):
-        validate_loadable_module(module)
-        super().__setitem__(key, module)
-
-    def serialize(self):
-        return {
-            "cassetta.Loadable": LoadableMixin.__version__,
-            "module": type(self).__module__,
-            "qualname": type(self).__qualname__,
-            "args": [{
-                key: module.serialize() for key, module in self.items()
-                }],
-            "kwargs": getattr(self, "_kwargs", dict()),
-        }
-
-
-class LoadableOptimizer(LoadableMixin, optim.Optimizer):
-    """
-    A loadable variant of [`optim.Optimizer`][torch.optim.Optimizer]
-
-    This is a loadable mixin for optimizers **without** saving model params.
-    """
-
-    def serialize(self) -> dict:
-        # Serialize as normal
-        serialized_state = super().serialize()
-        # Gather state dict as standard from pytorch optimizer
-        serialized_state["state"] = self.state_dict()
-        # Gather args and kwargs (to be manipulated)
-        args = serialized_state.get("args", tuple())
-        kwargs = serialized_state.get("kwargs", dict())
-        # Remove params from args if present
-        if args and isinstance(args[0], (torch.nn.Parameter, torch.Tensor)):
-            args = [[]] + list(args[1:])
-        # Replace args and kwargs
-        serialized_state["args"] = args
-        serialized_state["kwargs"] = kwargs
-
-        return serialized_state

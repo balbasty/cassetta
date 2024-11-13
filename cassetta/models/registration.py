@@ -1,8 +1,10 @@
 __all__ = ['ElasticRegNet']
+# externals
 from torch import nn
-from typing import Optional, Union
-from cassetta.core.typing import ActivationType, OneOrSeveral
-from cassetta.io.modules import LoadableMixin
+
+# internals
+from cassetta.core.typing import ActivationType, OneOrSeveral, Optional, Union
+from cassetta.io.loadable import LoadableMixin
 from cassetta.layers import ConvBlock, make_activation, FlowPull, FlowExp, Cat
 from cassetta import backbones
 
@@ -69,7 +71,6 @@ class ElasticRegNet(LoadableMixin, nn.Sequential):
     def out_channels(self):
         return self[-1].out_channels
 
-    @LoadableMixin.save_args
     def __init__(
         self,
         ndim: int,

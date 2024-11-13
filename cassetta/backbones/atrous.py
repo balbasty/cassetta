@@ -2,11 +2,14 @@ __all__ = [
     'MeshNet',
     'ATrousNet',
 ]
+# stdlib
 from functools import partial
+
+# internals
 from cassetta.core.typing import (
     OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType)
-from ..layers.convblocks import ConvGroup, ModuleGroup
-from ..layers.simple import ModuleSum
+from cassetta.layers.convblocks import ConvGroup, ModuleGroup
+from cassetta.layers.simple import ModuleSum
 
 
 class MeshNet(ModuleGroup):

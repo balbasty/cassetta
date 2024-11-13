@@ -4,9 +4,12 @@ __all__ = [
     'sub2ind_list',
 ]
 
+# externals
 import torch
 from torch import Tensor
-from typing import List
+
+# internals
+from cassetta.core.typing import List
 from .math import floor_div_int
 from .python import cumprod_list_int
 

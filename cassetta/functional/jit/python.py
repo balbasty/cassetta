@@ -11,7 +11,8 @@ __all__ = [
     'cumprod_list_int',
 ]
 import torch
-from typing import List
+
+from cassetta.core.typing import List
 
 
 @torch.jit.script

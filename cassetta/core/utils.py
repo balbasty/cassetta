@@ -12,17 +12,21 @@ __all__ = [
     'delete_files_with_pattern',
     'find_checkpoint'
 ]
+# stdlib
 import glob
 import os
 import numbers
 import numpy as np
 import shutil
+from types import GeneratorType as generator
+from importlib import import_module
+
+# externals
 import torch
 from torch import Tensor
-from types import GeneratorType as generator
-from typing import List, Tuple, Any, Optional
-from importlib import import_module
-from .typing import DeviceType
+
+# internals
+from cassetta.core.typing import DeviceType, List, Tuple, Any, Optional
 
 
 def ensure_list(

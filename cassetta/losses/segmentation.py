@@ -4,10 +4,17 @@ __all__ = [
     'CatMSELoss',
     'LogitMSELoss',
 ]
-import torch
+# stdlib
 import inspect
+
+# externals
+import torch
 from torch import nn
+
+# internals
 from cassetta.core.utils import make_vector
+
+# local
 from .base import Loss
 
 

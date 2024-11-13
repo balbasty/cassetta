@@ -1,9 +1,13 @@
 __all__ = ['UNet']
+# externals
 from torch import nn
-from typing import Optional, Union, Literal
+
+# internals
 from cassetta.core.typing import (
-    OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType)
-from .fcn import ConvEncoder, ConvDecoder
+    OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType,
+    Optional, Union, Literal
+)
+from cassetta.backbones.fcn import ConvEncoder, ConvDecoder
 
 
 class UNet(nn.Module):
@@ -119,7 +123,7 @@ class UNet(nn.Module):
         pool_factor: OneOrSeveral[int] = 2,
         pool_mode: str = 'pool',
         unpool_mode: Optional[str] = 'conv',
-        skip: Union[bool, Literal['+']] = True,
+        skip: Union[bool, Literal["+"]] = True,
     ):
         """
         Parameters

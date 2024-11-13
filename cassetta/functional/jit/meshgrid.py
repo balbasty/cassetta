@@ -38,7 +38,8 @@ __all__ = [
 ]
 import torch
 import os
-from typing import List
+
+from cassetta.core.typing import List
 
 
 _help_intro = (

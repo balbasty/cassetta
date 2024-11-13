@@ -5,7 +5,8 @@ __all__ = [
 ]
 import torch
 from torch import Tensor
-from typing import List
+
+from cassetta.core.typing import List
 
 
 @torch.jit.script

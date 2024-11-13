@@ -1,7 +1,8 @@
 """
-A set of cassetta-specific type hints.
+A set of cassetta-specific type hints, plus backward-compatible hints.
 """
 __all__ = [
+    # cassetta-specific type hints
     'OneOrSeveral',
     'DeviceType',
     'DataType',
@@ -14,17 +15,210 @@ __all__ = [
     'ModelType',
     'LossType',
     'OptimType',
+    # type hints aliases (always taken from `typing`)
+    'TypeVar',
+    'Union',
+    'Optional',
+    'Literal',
+    'Any',
+    'Final',
+    'ClassVar',
+    'Generic',
+    'IO',
+    'TextIO',
+    'BinaryIO',
+    'TypedDict',
+    'NoReturn',
+    # backward compatible type hints (taken from `typing` if needed)
+    'Type',
+    'List',
+    'Tuple',
+    'Dict',
+    'ChainMap',
+    'Counter',
+    'OrderedDict',
+    'DefaultDict',
+    'Deque',
+    'Pattern',
+    'Match',
+    'AbstractSet',
+    'ByteString',
+    'Collection',
+    'Container',
+    'ItemsView',
+    'KeysView',
+    'Mapping',
+    'MappingView',
+    'MutableMapping',
+    'MutableSequence',
+    'MutableSet',
+    'Sequence',
+    'ValuesView',
+    'Coroutine',
+    'AsyncGenerator',
+    'AsyncIterable',
+    'AsyncIterator',
+    'Awaitable',
+    'Iterable',
+    'Iterator',
+    'Callable',
+    'Generator',
+    'Reversible',
+    'ContextManager',
+    'AsyncContextManager',
+    'Hashable',
+    'Sized',
+    'LiteralString',
+    'Never',
+    'Self',
+    'Required',
+    'NotRequired',
+    'ReadOnly',
 ]
-import torch
+# stdlib
+import sys
+from typing import (
+    TypeVar,
+    Union,
+    Optional,
+    Literal,
+    Any,
+    NoReturn,
+    Final,
+    ClassVar,
+    Generic,
+    IO,
+    TextIO,
+    BinaryIO,
+    TypedDict,
+)
+
+# externals
 import numpy as np
+import torch
 from torch.nn import Module
 from torch.optim import Optimizer
 from bounds.types import BoundLike as BoundType
-from typing import (
-    Union, Optional, Sequence, Literal, Type, TypeVar
-)
 
+# backward compatibile imports
 T = TypeVar('T')
+if sys.version_info >= (3, 9):
+    from collections import (
+        ChainMap,
+        Counter,
+        OrderedDict,
+        defaultdict as DefaultDict,
+        deque as Deque,
+    )
+    from collections.abc import (
+        Collection,
+        Container,
+        ItemsView,
+        KeysView,
+        Mapping,
+        MappingView,
+        MutableMapping,
+        MutableSequence,
+        MutableSet,
+        Sequence,
+        ValuesView,
+        Coroutine,
+        AsyncGenerator,
+        AsyncIterable,
+        AsyncIterator,
+        Awaitable,
+        Iterable,
+        Iterator,
+        Callable,
+        Generator,
+        Reversible,
+        Buffer as ByteString,
+        Set as AbstractSet,
+    )
+    from re import (
+        Pattern,
+        Match,
+    )
+    from contextlib import (
+        AbstractContextManager as ContextManager,
+        AbstractAsyncContextManager as AsyncContextManager,
+
+    )
+    from typing import Annotated
+    Type = type
+    List = list
+    Tuple = tuple
+    Dict = dict
+else:
+    from typing import (
+        # builtins
+        Type,
+        List,
+        Tuple,
+        Dict,
+        # collections
+        ChainMap,
+        Counter,
+        OrderedDict,
+        DefaultDict,
+        Deque,
+        # re
+        Pattern,
+        Match,
+        # abc
+        AbstractSet,
+        ByteString,
+        Collection,
+        Container,
+        ItemsView,
+        KeysView,
+        Mapping,
+        MappingView,
+        MutableMapping,
+        MutableSequence,
+        MutableSet,
+        Sequence,
+        ValuesView,
+        Coroutine,
+        AsyncGenerator,
+        AsyncIterable,
+        AsyncIterator,
+        Awaitable,
+        Iterable,
+        Iterator,
+        Callable,
+        Generator,
+        Reversible,
+        # contextlib
+        ContextManager,
+        AsyncContextManager,
+    )
+    Annotated = TypeVar["Annotated"]
+if sys.version_info >= (3, 12):
+    from collections.abc import Hashable, Sized
+else:
+    from typing import Hashable, Sized
+if sys.version_info >= (3, 11):
+    from typing import (
+        LiteralString,
+        Never,
+        Self,
+        Required,
+        NotRequired,
+    )
+else:
+    from typing_extensions import (
+        LiteralString,
+        Never, Self,
+        Required,
+        NotRequired,
+    )
+if sys.version_info >= (3, 13):
+    from typing import ReadOnly
+else:
+    from typing_extensions import ReadOnly
+
+
 OneOrSeveral = Union[T, Sequence[T]]
 """
 Either a single value of a type, or a sequence of such values.
