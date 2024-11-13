@@ -13,9 +13,13 @@ __all__ = [
     'FlowLoss',
     'SplineUp2',
 ]
+
+# externals
 import torch
 import interpol as torch_interpol
 from torch import nn
+
+# internals
 from cassetta.core.utils import ensure_list
 from cassetta.core.typing import InterpolationType, BoundType
 

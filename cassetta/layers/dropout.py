@@ -1,8 +1,12 @@
 __all__ = ['make_dropout', 'ChannelDropout']
+
+# externals
 from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules.dropout import _DropoutNd as ChannelDropoutBase
+
+# internals
 from cassetta.core.typing import DropoutType
 
 

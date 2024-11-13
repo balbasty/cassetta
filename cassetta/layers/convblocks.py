@@ -4,18 +4,27 @@ __all__ = [
     'DownConvGroup',
     'UpConvGroup',
 ]
+# stdlib
+from functools import partial
+
+# exernals
 import torch
 from torch import nn
 from torch import Tensor
-from typing import Optional, Union, Literal
-from functools import partial
+
+# internals
 from cassetta.core.typing import (
     OneOrSeveral,
     ActivationType,
     NormType,
     DropoutType,
     AttentionType,
+    Optional,
+    Union,
+    Literal,
 )
+
+# local
 from .updown import (
     DownConv, DownPool, DownInterpol, UpConv, UpPool, UpInterpol
 )

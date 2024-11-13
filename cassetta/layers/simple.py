@@ -8,11 +8,13 @@ __all__ = [
     'ModuleGroup',
     'GlobalPool',
 ]
+# externals
 import torch
 from torch import nn
 from torch import Tensor
-from typing import List, Literal, Union
-from cassetta.core.typing import OneOrSeveral
+
+# internals
+from cassetta.core.typing import OneOrSeveral, List, Literal, Union
 
 
 class Cat(nn.Module):

@@ -3,7 +3,7 @@ __all__ = [
 ]
 
 from torch import optim
-from cassetta.io.modules import LoadableOptimizer
+from cassetta.io.optim import LoadableOptimizer
 
 
 class LoadableAdam(LoadableOptimizer, optim.Adam):
@@ -12,5 +12,4 @@ class LoadableAdam(LoadableOptimizer, optim.Adam):
 
     This optimizer saves everything except model parameters.
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    ...

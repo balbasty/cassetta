@@ -2,14 +2,18 @@ __all__ = [
     'Linear',
     'LazyLinear',
 ]
-import torch
+# stdlib
 import math
+
+# externals
+import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules.lazy import LazyModuleMixin
 from torch import Tensor
-from typing import Optional, Union, Callable
-from cassetta.core.typing import DeviceType
+
+# internals
+from cassetta.core.typing import DeviceType, Optional, Union, Callable
 
 
 class Linear(nn.Module):

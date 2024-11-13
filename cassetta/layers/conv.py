@@ -4,18 +4,16 @@ __all__ = [
     'SeparableConv',
     'CrossHairConv',
 ]
+# stdlib
 import math
+
+# externals
 import torch
 from torch import nn
 from torch import Tensor
 from torch.nn import functional as F
 from torch.nn.modules.lazy import LazyModuleMixin
 from bounds import pad, to_enum, BoundType as BoundEnum
-from typing import Optional, Union, Literal, Tuple, List, Callable
-from cassetta.core.typing import OneOrSeveral, DeviceType, BoundType
-from cassetta.core.utils import ensure_tuple
-
-# define all possible bounds here (should really be in torch-bounds)
 from bounds.types import (
     bounds_fourier,
     bounds_scipy,
@@ -25,6 +23,15 @@ from bounds.types import (
     enum_bounds,
     int_bounds,
 )
+
+# internals
+from cassetta.core.typing import (
+    OneOrSeveral, DeviceType, BoundType,
+    Optional, Union, Literal, Tuple, List, Callable
+)
+from cassetta.core.utils import ensure_tuple
+
+# define all possible bounds here (should really be in torch-bounds)
 all_bounds = (
     bounds_fourier +
     bounds_scipy +

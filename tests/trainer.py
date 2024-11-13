@@ -12,9 +12,8 @@ import torch
 import torch.nn as nn
 import tempfile
 from cassetta.datasets.supervised import DummySupervisedDataset
-from cassetta.io.modules import make_loadable
+from cassetta.io.loadable import make_loadable
 from cassetta.models.segmentation import SegNet
-from cassetta.backbones.unet import UNet
 from cassetta.optimizers.adam import LoadableAdam
 from cassetta.training.trainers import (TrainerConfig, SimpleSupervisedTrainer)
 

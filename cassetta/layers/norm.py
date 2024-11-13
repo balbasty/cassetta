@@ -4,12 +4,14 @@ __all__ = [
     'InstanceNorm',
     'LayerNorm',
 ]
+# externals
 from torch import nn
 from torch import Tensor
 from torch.nn.modules.batchnorm import _BatchNorm as BatchNormBase
 from torch.nn.modules.instancenorm import _InstanceNorm as InstanceNormBase
-from typing import Optional
-from cassetta.core.typing import DeviceType, DataType, NormType
+
+# internals
+from cassetta.core.typing import DeviceType, DataType, NormType, Optional
 from cassetta.core.utils import to_torch_dtype
 
 

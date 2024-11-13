@@ -9,12 +9,18 @@ __all__ = [
     'DotProductAttention',
     'MultiHeadAttention',
 ]
+# externals
 from torch import nn
 from torch import Tensor
-from typing import Literal, Optional
+
+# internals
 from cassetta.core.typing import (
-    ActivationType, OneOrSeveral, AttentionType, DeviceType, DataType)
+    ActivationType, OneOrSeveral, AttentionType, DeviceType, DataType,
+    Optional, Literal,
+)
 from cassetta.core.utils import to_torch_dtype
+
+# locals
 from .activations import make_activation
 from .simple import Cat, MoveDim, GlobalPool
 from .linear import Linear

@@ -1,21 +1,22 @@
-import torch
+# stdlib
 import importlib
+from dataclasses import dataclass
+
+# externals
+import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
-from typing import Union
-from dataclasses import dataclass
+
+# internals
+from cassetta.core.typing import Union
 from cassetta.core.utils import (
     refresh_experiment_dir,
     delete_files_with_pattern,
-    find_checkpoint
-    )
-from cassetta.io.modules import (
-    LoadableModule,
-    LoadableModuleDict,
-    StateMixin,
-    LoadableMixin,
+    find_checkpoint,
 )
+from cassetta.io.modules import LoadableModule, LoadableModuleDict
+from cassetta.io.loadable import StateMixin, LoadableMixin
 
 
 @dataclass
@@ -94,10 +95,10 @@ class LoadableTrainer(LoadableModule, save_args=False):
     Attributes
     ----------
     models : LoadableModuleDict
-        A loadable module dictionary for registered models, where each model 
+        A loadable module dictionary for registered models, where each model
         should inherit from `LoadableMixin` to support serialization.
     optimizers : dict
-        A dictionary containing the registered optimizers, with model names 
+        A dictionary containing the registered optimizers, with model names
         as keys and optimizer instances as values.
     losses : dict
         A dictionary containing registered loss functions for each model.
@@ -116,7 +117,6 @@ class LoadableTrainer(LoadableModule, save_args=False):
         The loss function associated with the main model, by default None.
     """
 
-    @LoadableModule.save_args
     def __init__(
         self,
         model=None,
@@ -173,7 +173,7 @@ class LoadableTrainer(LoadableModule, save_args=False):
         """
         Custom `Trainer` serialization.
 
-        Serializes the Trainer object to a dictionary, capturing the state 
+        Serializes the Trainer object to a dictionary, capturing the state
         of all models, optimizers, and trainer state for saving to a
         checkpoint.
 
@@ -335,7 +335,6 @@ class LoadableTrainer(LoadableModule, save_args=False):
 
 class SimpleSupervisedTrainer(LoadableTrainer):
 
-    @LoadableTrainer.save_args
     def __init__(
         self,
         dataset: Union[Dataset, DataLoader] = None,
