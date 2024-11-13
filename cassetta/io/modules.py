@@ -10,7 +10,7 @@ __all__ = [
 from torch import nn
 
 # internals
-from cassetta.core.typing import Iterable, Optional, Mapping, Tuple
+from cassetta.core.typing import Iterable, Optional, Mapping, Tuple, Union
 from cassetta.io.loadable import LoadableMixin
 
 
@@ -127,7 +127,10 @@ class LoadableModuleList(LoadableMixin, nn.ModuleList, save_args=False):
 class LoadableModuleDict(LoadableMixin, nn.ModuleDict, save_args=False):
     """A Loadable variant of [`nn.ModuleDict`][torch.nn.ModuleDict]"""
 
-    _ValidInput = Mapping[str, nn.Module] | Iterable[Tuple[str, nn.Module]]
+    _ValidInput = Union[
+        Mapping[str, nn.Module],
+        Iterable[Tuple[str, nn.Module]]
+    ]
 
     def __init__(self, modules: Optional[_ValidInput] = None) -> None:
         super().__init__(modules)
