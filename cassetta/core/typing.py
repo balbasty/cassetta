@@ -74,6 +74,7 @@ __all__ = [
     'Required',
     'NotRequired',
     'ReadOnly',
+    'Annotated',
 ]
 # stdlib
 import sys
@@ -193,7 +194,7 @@ else:
         ContextManager,
         AsyncContextManager,
     )
-    Annotated = TypeVar["Annotated"]
+    from typing_extensions import Annotated
 if sys.version_info >= (3, 12):
     from collections.abc import Hashable, Sized
 else:
