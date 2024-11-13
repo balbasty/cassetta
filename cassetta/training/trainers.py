@@ -15,7 +15,7 @@ from cassetta.core.utils import (
     delete_files_with_pattern,
     find_checkpoint,
 )
-from cassetta.io.module import LoadableModule, LoadableModuleDict
+from cassetta.io.modules import LoadableModule, LoadableModuleDict
 from cassetta.io.loadable import StateMixin, LoadableMixin
 
 
