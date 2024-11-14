@@ -19,6 +19,39 @@ from cassetta.io.utils import import_qualname
 from cassetta.core.typing import Union, IO, Type
 
 
+def _default_init(cls) -> None:
+    # Default init method that calls parents init.
+    #
+    #   Let `class Child(Base1, Base2): ...`
+    #   If `__init__` was not specifically implemented in `Child`, then
+    #   `Child.__init__` returns a reference one of the parents `__init__`.
+    #   However, it does not mean that only this specific parent's `__init__`
+    #   is called when instantiating a `Child` object. Instead, both parent's
+    #   `__init__` are called, sorted by method resolution order (MRO).
+    #   This is similar to what happens if we had defined `Child.__init__` as
+    #   calling `super().__init__`.
+    #
+    #   Now, say that we want to decorate the child's __init__, whether
+    #   it is overloaded in th echild class _or_ it implictely inherits
+    #   both parents `__init__`. If we're in the latter case and simply do
+    #       `Child.__init__ = decorate(Child.__init__)`
+    #   we end up never caling the other parent's `__init__`! Effectively
+    #   we've stripped down the MRO. It's like calling Base1.__init__
+    #   instead of super().__init__ (big mistake!)
+    #
+    #   Instead, we can check whether `__init__` is explicit or implicit
+    #   by checking whether it is in `Child.__dict__`. If yes, it has
+    #   been explicitly implemented in the `Child` class. Otherwise,
+    #   it implicitelly calls `super().__init__`. In the latter case
+    #   we must assign a function that explicitly calls `super()`, so
+    #   that it can be decorated.
+
+    def __init__(self, *args, **kwargs) -> None:
+        super(cls, self).__init__(*args, **kwargs)
+
+    return __init__
+
+
 class LoadableMixin:
     """
     A mixin to make a 'torch.nn.Module' loadable and savable.
@@ -66,6 +99,8 @@ class LoadableMixin:
         # Implement `save_args` type keyword
         super().__init_subclass__(**kwargs)
         if save_args:
+            if "__init__" not in cls.__dict__:
+                cls.__init__ = _default_init(cls)
             cls.__init__ = cls._save_args(cls.__init__)
 
     @staticmethod
