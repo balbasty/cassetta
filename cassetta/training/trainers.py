@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader, random_split
-from torch.utils.tensorboard import SummaryWriter
+
 
 # internals
 from cassetta.core.typing import Union
@@ -569,6 +569,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         Train the model for `self.config.nb_epochs` epochs.
         """
         if self.config.logging_verbosity >= 1:
+            from torch.utils.tensorboard import SummaryWriter
             self.writer = SummaryWriter(self.config.experiment_dir)
             if self.config.logging_verbosity >= 2:
                 self.log_model_graph()
@@ -586,7 +587,7 @@ class SimpleSupervisedTrainer(LoadableTrainer):
         if self.config.logging_verbosity >= 2:
             self.log_model_graph()
 
-    def log_model_graph(self) -> SummaryWriter:
+    def log_model_graph(self):
         """
         Logs the model graph to TensorBoard.
 
