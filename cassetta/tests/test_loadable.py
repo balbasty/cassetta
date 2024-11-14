@@ -1,4 +1,8 @@
+from torch.optim import Adam
+from torch.nn import Linear
+from cassetta.io import make_loadable
 from cassetta.io.loadable import LoadableMixin, load
+from cassetta.io.optim import LoadableOptimizerMixin
 
 
 class _Loadable(LoadableMixin):
@@ -56,4 +60,15 @@ def test_loadable_local() -> None:
     ), "Reference and loaded objects differ."
 
     assert reference_state == loaded_state, \
+        "Reference and loaded states differ."
+
+
+def test_loadable_optim() -> None:
+    module = Linear(1, 1)
+    optim = make_loadable(Adam)(module.parameters())
+    state = optim.serialize()
+    loaded_object = LoadableOptimizerMixin.load(state, module.parameters())
+    loaded_state = loaded_object.serialize()
+
+    assert state == loaded_state, \
         "Reference and loaded states differ."

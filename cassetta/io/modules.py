@@ -10,52 +10,32 @@ __all__ = [
 from torch import nn
 
 # internals
-from cassetta.core.typing import Iterable, Optional, Mapping, Tuple, Union
-from cassetta.io.loadable import LoadableMixin
-
-
-def _validate_loadable_module(module: nn.Module) -> None:
-    """
-    Validate if a single module is an instance of LoadableMixin.
-
-    Parameters
-    ----------
-    module : nn.Module
-        The module to check.
-
-    Raises
-    ------
-    TypeError
-        If the module is not an instance of LoadableMixin.
-    """
-    if not isinstance(module, LoadableMixin):
-        raise TypeError(
-            "Only Loadable modules can be added."
-            f" '{module.__class__.__name__}' is not a LoadableMixin."
-            )
-
-
-def _validate_loadable_modules(modules: Iterable[nn.Module]) -> None:
-    """
-    Check if all modules in a list are instances of LoadableMixin.
-
-    Parameters
-    ----------
-    modules : iterable of nn.Module
-        The collection of modules to check.
-
-    Raises
-    ------
-    TypeError
-        If any module is not an instance of LoadableMixin.
-    """
-    for module in modules:
-        _validate_loadable_module(module)
+from cassetta.core.typing import Iterable, Optional, Mapping, Tuple, Union, IO
+from cassetta.io.loadable import (
+    LoadableMixin, _validate_loadable, _validate_loadable_all
+)
 
 
 class LoadableModule(LoadableMixin, nn.Module):
     """A Loadable variant of [`nn.Module`][torch.nn.Module]"""
-    ...
+
+    @classmethod
+    def load(cls, loadable_state: Union[str, IO]) -> "LoadableModule":
+        """
+        Load and build a model/module from a file.
+
+        Parameters
+        ----------
+        loadable_state : file_like or dict
+            Object state, or path to model file, or opened file object.
+
+        Returns
+        -------
+        module : nn.Module
+            An instantiated [`nn.Module`][torch.nn.Module].
+        """
+        # We only overload to specialize the docstring
+        return super().load(loadable_state)
 
 
 class LoadableSequential(LoadableMixin, nn.Sequential, save_args=False):
@@ -63,21 +43,21 @@ class LoadableSequential(LoadableMixin, nn.Sequential, save_args=False):
 
     def __init__(self, *args) -> None:
         super().__init__(*args)
-        _validate_loadable_modules(self)
+        _validate_loadable_all(self)
 
     def append(self, module: nn.Module) -> "LoadableSequential":
-        _validate_loadable_module(module)
+        _validate_loadable(module)
         super().append(module)
         return self
 
     def extend(self, modules: Iterable[nn.Module]) -> "LoadableSequential":
         modules = list(modules)
-        _validate_loadable_modules(modules)
+        _validate_loadable_all(modules)
         super().extend(modules)
         return self
 
     def insert(self, index: int, module: nn.Module) -> "LoadableSequential":
-        _validate_loadable_module(module)
+        _validate_loadable(module)
         super().insert(index, module)
         return self
 
@@ -96,21 +76,21 @@ class LoadableModuleList(LoadableMixin, nn.ModuleList, save_args=False):
 
     def __init__(self, modules: Optional[Iterable[nn.Module]] = None) -> None:
         super().__init__(modules)
-        _validate_loadable_modules(self)
+        _validate_loadable_all(self.values())
 
     def append(self, module: nn.Module) -> "LoadableModuleList":
-        _validate_loadable_module(module)
+        _validate_loadable(module)
         super().append(module)
         return self
 
     def extend(self, modules: Iterable[nn.Module]) -> "LoadableModuleList":
         modules = list(modules)
-        _validate_loadable_modules(modules)
+        _validate_loadable_all(modules)
         super().extend(modules)
         return self
 
     def insert(self, index: int, module: nn.Module) -> "LoadableModuleList":
-        _validate_loadable_module(module)
+        _validate_loadable(module)
         super().insert(index, module)
         return self
 
@@ -134,14 +114,15 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict, save_args=False):
 
     def __init__(self, modules: Optional[_ValidInput] = None) -> None:
         super().__init__(modules)
-        # Ensure all modules are loadable
-        for key, module in self.items():
-            if not isinstance(module, LoadableMixin):
-                raise TypeError(f"Module '{key}' must be Loadable")
+        _validate_loadable_all(self.values())
 
-    def __setitem__(self, key, module):
-        _validate_loadable_module(module)
+    def __setitem__(self, key, module) -> None:
+        _validate_loadable(module)
         super().__setitem__(key, module)
+
+    def update(self, other) -> None:
+        _validate_loadable_all(other.values())
+        super().update(other)
 
     def serialize(self):
         return {
@@ -150,6 +131,6 @@ class LoadableModuleDict(LoadableMixin, nn.ModuleDict, save_args=False):
             "qualname": type(self).__qualname__,
             "args": [{
                 key: module.serialize() for key, module in self.items()
-                }],
+            }],
             "kwargs": getattr(self, "_kwargs", dict()),
         }
