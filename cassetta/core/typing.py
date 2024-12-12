@@ -42,7 +42,6 @@ __all__ = [
     'Pattern',
     'Match',
     'AbstractSet',
-    'ByteString',
     'Collection',
     'Container',
     'ItemsView',
@@ -76,9 +75,15 @@ __all__ = [
     'ReadOnly',
     'Annotated',
 ]
-# stdlib
-import sys
-from typing import (
+# externals
+import numpy as np
+import torch
+from torch.nn import Module
+from torch.optim import Optimizer
+from bounds.types import BoundLike as BoundType
+
+# backward compatibile imports
+from typing_extensions import (
     TypeVar,
     Union,
     Optional,
@@ -92,133 +97,53 @@ from typing import (
     TextIO,
     BinaryIO,
     TypedDict,
+    ChainMap,
+    Counter,
+    OrderedDict,
+    DefaultDict,
+    Deque,
+    Collection,
+    Container,
+    ItemsView,
+    KeysView,
+    Mapping,
+    MappingView,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+    Sequence,
+    ValuesView,
+    Coroutine,
+    AsyncGenerator,
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Iterable,
+    Iterator,
+    Callable,
+    Generator,
+    Reversible,
+    AbstractSet,
+    Pattern,
+    Match,
+    ContextManager,
+    AsyncContextManager,
+    Annotated,
+    Type,
+    List,
+    Tuple,
+    Dict,
+    Hashable,
+    Sized,
+    LiteralString,
+    Never,
+    Self,
+    Required,
+    NotRequired,
+    ReadOnly,
 )
 
-# externals
-import numpy as np
-import torch
-from torch.nn import Module
-from torch.optim import Optimizer
-from bounds.types import BoundLike as BoundType
-
-# backward compatibile imports
 T = TypeVar('T')
-if sys.version_info >= (3, 9):
-    from collections import (
-        ChainMap,
-        Counter,
-        OrderedDict,
-        defaultdict as DefaultDict,
-        deque as Deque,
-    )
-    from collections.abc import (
-        Collection,
-        Container,
-        ItemsView,
-        KeysView,
-        Mapping,
-        MappingView,
-        MutableMapping,
-        MutableSequence,
-        MutableSet,
-        Sequence,
-        ValuesView,
-        Coroutine,
-        AsyncGenerator,
-        AsyncIterable,
-        AsyncIterator,
-        Awaitable,
-        Iterable,
-        Iterator,
-        Callable,
-        Generator,
-        Reversible,
-        Buffer as ByteString,
-        Set as AbstractSet,
-    )
-    from re import (
-        Pattern,
-        Match,
-    )
-    from contextlib import (
-        AbstractContextManager as ContextManager,
-        AbstractAsyncContextManager as AsyncContextManager,
-
-    )
-    from typing import Annotated
-    Type = type
-    List = list
-    Tuple = tuple
-    Dict = dict
-else:
-    from typing import (
-        # builtins
-        Type,
-        List,
-        Tuple,
-        Dict,
-        # collections
-        ChainMap,
-        Counter,
-        OrderedDict,
-        DefaultDict,
-        Deque,
-        # re
-        Pattern,
-        Match,
-        # abc
-        AbstractSet,
-        ByteString,
-        Collection,
-        Container,
-        ItemsView,
-        KeysView,
-        Mapping,
-        MappingView,
-        MutableMapping,
-        MutableSequence,
-        MutableSet,
-        Sequence,
-        ValuesView,
-        Coroutine,
-        AsyncGenerator,
-        AsyncIterable,
-        AsyncIterator,
-        Awaitable,
-        Iterable,
-        Iterator,
-        Callable,
-        Generator,
-        Reversible,
-        # contextlib
-        ContextManager,
-        AsyncContextManager,
-    )
-    from typing_extensions import Annotated
-if sys.version_info >= (3, 12):
-    from collections.abc import Hashable, Sized
-else:
-    from typing import Hashable, Sized
-if sys.version_info >= (3, 11):
-    from typing import (
-        LiteralString,
-        Never,
-        Self,
-        Required,
-        NotRequired,
-    )
-else:
-    from typing_extensions import (
-        LiteralString,
-        Never, Self,
-        Required,
-        NotRequired,
-    )
-if sys.version_info >= (3, 13):
-    from typing import ReadOnly
-else:
-    from typing_extensions import ReadOnly
-
 
 OneOrSeveral = Union[T, Sequence[T]]
 """

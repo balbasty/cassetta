@@ -6,12 +6,14 @@ __all__ = [
 from torch import nn
 from functools import partial
 
+# externals
+from typing_extensions import Union, List
+
 # internals
 from cassetta.core.typing import (
     OneOrSeveral, ActivationType, NormType, DropoutType, AttentionType,
-    Union, List
 )
-from cassetta.layers import ConvGroup, UpConvGroup, DownConvGroup
+from cassetta.layers.convblocks import ConvGroup, UpConvGroup, DownConvGroup
 
 
 class ConvEncoder(nn.Sequential):

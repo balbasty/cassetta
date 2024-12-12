@@ -1,4 +1,5 @@
 __all__ = [
+    'make_linear',
     'Linear',
     'LazyLinear',
 ]
@@ -11,9 +12,51 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules.lazy import LazyModuleMixin
 from torch import Tensor
+from typing_extensions import Optional, Union, Callable
 
 # internals
-from cassetta.core.typing import DeviceType, Optional, Union, Callable
+from cassetta.core.typing import DeviceType
+
+
+def make_linear(
+    inp_channels: int,
+    out_channels: Optional[int] = None,
+    bias: bool = True,
+    dim: int = 1,
+    device: Optional[DeviceType] = None,
+    dtype: Optional[torch.dtype] = None,
+):
+    """
+    Instantiate a linear layer.
+
+    Parameters
+    ----------
+    ndim : int
+        Number of spatial dimensions
+    inp_channels : int
+        Number of input channels
+    out_channels : int, default=`inp_channels`
+        Number of output channels
+    bias : int
+        Add a learnable bias term
+    dim : int
+        Dimension along which to operate
+    device : torch.device
+        Weights' device
+    dtype : torch.dtype
+        Weights' data type
+
+    Returns
+    -------
+    layer : Conv or ConvTransposed or SeparableConv or CrossHairConv
+    """
+    opt = dict(
+        bias=bias,
+        dim=dim,
+        device=device,
+        dtype=dtype,
+    )
+    return Linear(inp_channels, out_channels, **opt)
 
 
 class Linear(nn.Module):
@@ -31,14 +74,14 @@ class Linear(nn.Module):
     weight: Tensor
 
     def __init__(
-            self,
-            inp_channels: int,
-            out_channels: Optional[int],
-            bias: bool = True,
-            dim: int = 1,
-            *,
-            device: Optional[DeviceType] = None,
-            dtype: Optional[torch.dtype] = None,
+        self,
+        inp_channels: int,
+        out_channels: Optional[int],
+        bias: bool = True,
+        dim: int = 1,
+        *,
+        device: Optional[DeviceType] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         Parameters
@@ -90,16 +133,16 @@ class Linear(nn.Module):
         """
         Parameters
         ----------
-        inp : (B, Cinp, *spatial) tensor
+        inp : (*batch, Cinp, *spatial) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, Cout, *spatial) tensor
+        out : (*batch, Cout, *spatial) tensor
             Output tensor
         """
         inp = inp.movedim(self.dim, -1)
-        out = F.linear(input, self.weight, self.bias)
+        out = F.linear(inp, self.weight, self.bias)
         out = out.movedim(-1, self.dim)
         return out
 
@@ -130,13 +173,13 @@ class LazyLinear(LazyModuleMixin, Linear):
     bias: nn.UninitializedParameter     # type: ignore[assignment]
 
     def __init__(
-            self,
-            out_channels: Optional[Union[int, Callable[[int], int]]],
-            bias: bool = True,
-            dim: int = 1,
-            *,
-            device: Optional[DeviceType] = None,
-            dtype: Optional[torch.dtype] = None,
+        self,
+        out_channels: Optional[Union[int, Callable[[int], int]]],
+        bias: bool = True,
+        dim: int = 1,
+        *,
+        device: Optional[DeviceType] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         Parameters
