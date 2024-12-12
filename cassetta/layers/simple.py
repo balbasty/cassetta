@@ -12,9 +12,10 @@ __all__ = [
 import torch
 from torch import nn
 from torch import Tensor
+from typing_extensions import Optional, Union, List, Literal, Tuple
 
 # internals
-from cassetta.core.typing import OneOrSeveral, List, Literal, Union
+from cassetta.core.typing import OneOrSeveral
 
 
 class Cat(nn.Module):
@@ -41,7 +42,7 @@ class Cat(nn.Module):
         ```
     """
 
-    def __init__(self, dim=1):
+    def __init__(self, dim: int = 1) -> None:
         """
         Parameters
         ----------
@@ -51,7 +52,7 @@ class Cat(nn.Module):
         super().__init__()
         self.dim = dim
 
-    def forward(self, *inputs):
+    def forward(self, *inputs) -> Tensor:
         """
         Parameters
         ----------
@@ -89,7 +90,7 @@ class Add(nn.Module):
         ```
     """
 
-    def forward(self, *inputs):
+    def forward(self, *inputs) -> Tensor:
         """
         Parameters
         ----------
@@ -126,7 +127,7 @@ class Split(nn.Module):
         ```
     """
 
-    def __init__(self, nb_chunks=2, dim=1):
+    def __init__(self, nb_chunks: int = 2, dim: int = 1) -> None:
         """
         Parameters
         ----------
@@ -139,7 +140,7 @@ class Split(nn.Module):
         self.dim = dim
         self.nb_chunks = nb_chunks
 
-    def forward(self, input):
+    def forward(self, input: Tensor) -> List[Tensor]:
         """
         Parameters
         ----------
@@ -166,19 +167,19 @@ class DoNothing(nn.Module):
         ```
     """
 
-    def forward(self, x, *args, **kwargs):
+    def forward(self, x: Tensor, *args, **kwargs) -> Tensor:
         return x
 
 
 class MoveDim(nn.Module):
     """Move dimension in a tensor"""
 
-    def __init__(self, src, dst):
+    def __init__(self, src: OneOrSeveral[int], dst: OneOrSeveral[int]) -> None:
         super().__init__()
         self.src = src
         self.dst = dst
 
-    def forward(self, inp):
+    def forward(self, inp: Tensor) -> Tensor:
         return inp.movedim(self.src, self.dst)
 
 
@@ -215,7 +216,8 @@ class Hadamard(nn.Module):
                 classDef n fill:none,stroke:none;
             ```
     """
-    def forward(self, x, y=None):
+    def forward(self, x: Tensor, y: Optional[Tensor] = None
+                ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         """
 
         !!! note
@@ -270,7 +272,7 @@ class ModuleSum(nn.ModuleList):
     !!! warning "The output of all modules must have the same shape"
     """
 
-    def forward(self, inp):
+    def forward(self, inp: Tensor) -> Tensor:
         """
         Parameters
         ----------
@@ -371,7 +373,7 @@ class ModuleGroup(nn.Sequential):
         blocks: List[nn.Module],
         residual: bool = False,
         skip: int = 0,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -454,7 +456,7 @@ class GlobalPool(nn.Module):
         reduction: Literal['mean', 'max'] = 'mean',
         keepdim: bool = True,
         dim: Union[OneOrSeveral[int], Literal['spatial']] = 'spatial',
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -470,7 +472,7 @@ class GlobalPool(nn.Module):
         self.keepdim = keepdim
         self.dim = dim
 
-    def forward(self, inp):
+    def forward(self, inp: Tensor) -> Tensor:
         """
         Parameters
         ----------
@@ -494,3 +496,113 @@ class GlobalPool(nn.Module):
             return inp.mean(dim=dims, keepdim=self.keepdim)
         else:
             raise ValueError(f'Unknown reduction "{self.reduction}"')
+
+
+class TimeSpaceSwitch(nn.Module):
+    """
+    Reshuffle a tensor so that its time dimension is to the right
+    of the channel dimension.
+
+    ```
+    (*batch, time, [channel], *spatial) -> (*batch, *spatial, channel, time)
+    ```
+    """
+
+    def __init__(
+        self,
+        time_dim: int = 1,
+        channel_dim: Optional[int] = None,
+    ) -> Tensor:
+        """
+        Parameters
+        ----------
+        time_dim : int
+            Index of time dimension
+        channel_dim : int | None
+            Index of channel dimension.
+            If `None`, no channel dimension, which requires that
+            `inp_channels = out_channels = 1`.
+        """
+        super().__init__()
+        self.time_dim = time_dim
+        self.channel_dim = channel_dim
+
+    def forward(self, inp: Tensor) -> Tensor:
+        """
+        Parameters
+        ----------
+        inp : (*batch, time, [channel], *spatial) tensor
+            Input tensor
+
+        Returns
+        -------
+        out : (*batch, *spatial, channel, time) tensor
+            Output tensor
+        """
+        time_dim = self.time_dim
+        channel_dim = self.channel_dim
+        if time_dim < 0:
+            time_dim = inp.ndim + time_dim
+        if channel_dim and channel_dim < 0:
+            channel_dim = inp.ndim + channel_dim
+        if channel_dim is None:
+            channel_dim = time_dim + 1
+            inp = inp.unsqueeze(channel_dim)
+        inp = inp.movedim([channel_dim, time_dim], [-2, -1])
+        return inp
+
+
+class TimeSpaceSwitchTransposed(nn.Module):
+    """
+    Reshuffle a tensor so that its time dimension is to the left
+    of the channel dimension.
+
+    ```
+    (*batch, *spatial, channel, time) -> (*batch, time, [channel], *spatial)
+    ```
+    """
+
+    def __init__(
+        self,
+        time_dim: int = 1,
+        channel_dim: Optional[int] = None,
+    ) -> Tensor:
+        """
+        Parameters
+        ----------
+        time_dim : int
+            Index of time dimension
+        channel_dim : int | None
+            Index of channel dimension.
+            If `None`, no channel dimension, which requires that
+            `inp_channels = out_channels = 1`.
+        """
+        super().__init__()
+        self.time_dim = time_dim
+        self.channel_dim = channel_dim
+
+    def forward(self, inp: Tensor) -> Tensor:
+        """
+        Parameters
+        ----------
+        out : (*batch, *spatial, channel, time) tensor
+            Output tensor
+
+        Returns
+        -------
+        inp : (*batch, time, [channel], *spatial) tensor
+            Input tensor
+        """
+        time_dim = self.time_dim
+        channel_dim = self.channel_dim
+        no_channel_dim = channel_dim is None
+        if time_dim < 0:
+            time_dim = inp.ndim + time_dim
+        if channel_dim and channel_dim < 0:
+            channel_dim = inp.ndim + channel_dim
+        if channel_dim is None:
+            channel_dim = time_dim + 1
+        inp = inp.movedim([-2, -1], [channel_dim, time_dim])
+        if no_channel_dim:
+            inp = inp.squeeze(channel_dim)
+        return inp

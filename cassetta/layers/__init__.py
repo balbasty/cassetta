@@ -20,6 +20,8 @@ interpol
     N-dimensional interpolation and grid sampling
 linear
     Linear layer (slightly more practical than PyTorch's)
+linearblocks
+    Building blocks for MLPs
 simple
     A bunch of embarassingly simple layers (Cat, Sum, ...)
 updown
@@ -36,6 +38,7 @@ import_submodules([
     'dropout',
     'interpol',
     'linear',
+    'linearblocks',
     'norm',
     'simple',
     'updown',

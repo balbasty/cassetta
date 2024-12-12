@@ -5,7 +5,10 @@ from torch import nn
 # internals
 from cassetta.core.typing import ActivationType, OneOrSeveral, Optional, Union
 from cassetta.io.loadable import LoadableMixin
-from cassetta.layers import ConvBlock, make_activation, FlowPull, FlowExp, Cat
+from cassetta.layers.convblocks import ConvBlock
+from cassetta.layers.activations import make_activation
+from cassetta.layers.interpol import FlowPull, FlowExp
+from cassetta.layers.simple import Cat
 from cassetta import backbones
 
 

@@ -351,22 +351,30 @@ class Conv(_Conv):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_size) tensor
+        inp : (*batch, inp_channels, *inp_size) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, out_channels, *out_size) tensor
+        out : (*batch, out_channels, *out_size) tensor
             Convolved tensor
         """
         ndim = len(self.kernel_size)
-        padding = self.padding
         conv = getattr(F, f'conv{ndim}d')
+        # flatten batch dimensions
+        batch = inp.shape[:-(ndim+1)]
+        inp = inp.reshape((-1,) + inp.shape[-(ndim+1):])
+        # pre-pad tensor if needed (non-zero padding)
+        padding = self.padding
         if to_enum(self.padding_mode) != BoundEnum.zeros:
             inp = pad(inp, self._padding_lr, mode=self.padding_mode)
             padding = 0
-        return conv(inp, self.weight, self.bias, self.stride,
-                    padding, self.dilation, self.groups)
+        # convolve
+        out = conv(inp, self.weight, self.bias, self.stride,
+                   padding, self.dilation, self.groups)
+        # unflatten batch dimensions
+        out = out.reshape(batch + out.shape[-(ndim+1):])
+        return out
 
 
 class ConvTransposed(_Conv):
@@ -426,21 +434,29 @@ class ConvTransposed(_Conv):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_size) tensor
+        inp : (*batch, inp_channels, *inp_size) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, out_channels, *out_size) tensor
+        out : (*batch, out_channels, *out_size) tensor
             Output tensor
 
         """
         ndim = len(self.kernel_size)
-        output_padding = self._output_padding(inp, out_size)
         conv_transpose = getattr(F, f'conv_transpose{ndim}d')
-        return conv_transpose(
+        # flatten batch dimensions
+        batch = inp.shape[:-(ndim+1)]
+        inp = inp.reshape((-1,) + inp.shape[-(ndim+1):])
+        # pre-pad tensor of needed
+        output_padding = self._output_padding(inp, out_size)
+        # convolve
+        out = conv_transpose(
             inp, self.weight, self.bias, self.stride, self.padding,
             output_padding, self.groups, self.dilation)
+        # unflatten batch dimensions
+        out = out.reshape(batch + out.shape[-(ndim+1):])
+        return out
 
 
 class LazyConv(LazyModuleMixin, Conv):
@@ -709,13 +725,248 @@ class CrossHairConv(SeparableConv):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *spatial)
+        inp : (*batch, inp_channels, *spatial)
 
         Returns
         -------
-        out : (B, out_channels, *spatial)
+        out : (*batch, out_channels, *spatial)
         """
         out = 0
         for layer in self:
             out += layer(inp)
         return out
+
+
+def _time2spatial_forward(
+    forward: Callable[[Tensor], Tensor],
+    inp: Tensor,
+    time_dim: int = 1,
+    channel_dim: Optional[int] = None,
+) -> Tensor:
+    """
+    Reshuffle a tensor so that its time dimension looks like a
+    spatial dimension, apply a spatial forward function, and shuffle
+    the tensor back.
+
+    Parameters
+    ----------
+    forward : callable
+        Spatial forward function
+    inp : (*batch, inp_time, [inp_channel], *spatial)
+        Input tensor
+
+    Returns
+    -------
+    out : (*batch, out_time, [out_channel], *spatial)
+        Output tensor
+    """
+    no_channel_dim = channel_dim is None
+    if time_dim < 0:
+        time_dim = inp.ndim + time_dim
+    if channel_dim and channel_dim < 0:
+        channel_dim = inp.ndim + channel_dim
+    if channel_dim is None:
+        channel_dim = time_dim + 1
+        inp = inp.unsqueeze(channel_dim)
+    inp = inp.movedim([channel_dim, time_dim], [-2, -1])
+    out = forward(inp)
+    out = out.movedim([-2, -1], [channel_dim, time_dim])
+    if no_channel_dim:
+        out = out.squeeze(channel_dim)
+    return out
+
+
+class TimeConv(Conv):
+    """
+    A 1D convolution along the time dimension.
+
+    By default, this class assumes that the time dimension is the channel
+    dimension. More advanced cases --- such as when the both time and channel
+    dimensions exit --- can be handled by setting the index of the time
+    and of the channel dimension. In this case, the number of input and
+    output channels must also be provided, and the kernel contains
+    a fully-connected component across channels (similarly to the
+    spatial case).
+    """
+
+    def __init__(
+        self,
+        inp_channels: int = 1,
+        out_channels: Optional[int] = None,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: Union[Literal['same', 'valid'], int] = 0,
+        dilation: int = 1,
+        output_padding: int = 0,
+        groups: int = 1,
+        bias: bool = True,
+        padding_mode: BoundType = 'zeros',
+        time_dim: int = 1,
+        channel_dim: Optional[int] = None,
+        device: Optional[DeviceType] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        inp_channels : int
+            Number of input channels
+        out_channels : int, default=`inp_channels`
+            Number of output channels
+        kernel_size : int
+            Kernel size
+        stride : int
+            Space between output elements
+        padding : {'same', 'valid'} or int
+            Amount of padding to apply
+        dilation : int
+            Space between kernel elements
+        groups : int
+            Number of groups
+        bias : bool
+            Add a learnable bias term
+        padding_mode : BoundType
+            How to pad the tensor
+        time_dim : int
+            Index of time dimension
+        channel_dim : int | None
+            Index of channel dimension.
+            If `None`, no channel dimension, which requires that
+            `inp_channels = out_channels = 1`.
+        """
+        super().__init__(
+            ndim=1,
+            inp_channels=inp_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+            padding_mode=padding_mode,
+            device=device,
+            dtype=dtype,
+        )
+        self.time_dim = time_dim
+        self.channel_dim = channel_dim
+        if channel_dim is None and inp_channels != 1:
+            raise ValueError(
+                "Cannot have `channel_dim=None` and `inp_channels>1`"
+            )
+
+    def forward(self, inp: Tensor) -> Tensor:
+        """
+        Parameters
+        ----------
+        inp : (*batch, inp_time, [inp_channel], *spatial)
+            Input tensor
+
+        Returns
+        -------
+        out : (*batch, out_time, [out_channel], *spatial)
+            Output tensor
+        """
+        return _time2spatial_forward(
+            super().forward, inp, self.time_dim, self.channel_dim
+        )
+
+
+class TimeConvTransposed(ConvTransposed):
+    """
+    A 1D transposed convolution along the time dimension.
+
+    By default, this class assumes that the time dimension is the channel
+    dimension. More advanced cases --- such as when the both time and channel
+    dimensions exit --- can be handled by setting the index of the time
+    and of the channel dimension. In this case, the number of input and
+    output channels must also be provided, and the kernel contains
+    a fully-connected component across channels (similarly to the
+    spatial case).
+    """
+
+    def __init__(
+        self,
+        inp_channels: int = 1,
+        out_channels: Optional[int] = None,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: Union[Literal['same', 'valid'], int] = 0,
+        dilation: int = 1,
+        output_padding: int = 0,
+        groups: int = 1,
+        bias: bool = True,
+        padding_mode: BoundType = 'zeros',
+        time_dim: int = 1,
+        channel_dim: Optional[int] = None,
+        device: Optional[DeviceType] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        inp_channels : int
+            Number of input channels
+        out_channels : int, default=`inp_channels`
+            Number of output channels
+        kernel_size : int
+            Kernel size
+        stride : int
+            Space between output elements
+        padding : {'same', 'valid'} or int
+            Amount of padding to apply
+        dilation : int
+            Space between kernel elements
+        output_padding : int
+            Amount of padding to apply to the ouptput of a transposed
+            convolution.
+        groups : int
+            Number of groups
+        bias : bool
+            Add a learnable bias term
+        padding_mode : BoundType
+            How to pad the tensor
+        time_dim : int
+            Index of time dimension
+        channel_dim : int | None
+            Index of channel dimension.
+            If `None`, no channel dimension, which requires that
+            `inp_channels = out_channels = 1`.
+        """
+        super().__init__(
+            ndim=1,
+            inp_channels=inp_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            output_padding=output_padding,
+            groups=groups,
+            bias=bias,
+            padding_mode=padding_mode,
+            device=device,
+            dtype=dtype,
+        )
+        self.time_dim = time_dim
+        self.channel_dim = channel_dim
+        if channel_dim is None and inp_channels != 1:
+            raise ValueError(
+                "Cannot have `channel_dim=None` and `inp_channels>1`"
+            )
+
+    def forward(self, inp: Tensor) -> Tensor:
+        """
+        Parameters
+        ----------
+        inp : (*batch, inp_time, [inp_channel], *spatial)
+            Input tensor
+
+        Returns
+        -------
+        out : (*batch, out_time, [out_channel], *spatial)
+            Output tensor
+        """
+        return _time2spatial_forward(
+            super().forward, inp, self.time_dim, self.channel_dim
+        )

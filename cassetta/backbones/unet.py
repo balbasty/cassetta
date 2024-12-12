@@ -10,7 +10,57 @@ from cassetta.core.typing import (
 from cassetta.backbones.fcn import ConvEncoder, ConvDecoder
 
 
-class UNet(nn.Module):
+class UNetBase(nn.Module):
+
+    @property
+    def inp_channels(self):
+        return self.encoder.inp_channels
+
+    @property
+    def out_channels(self):
+        return self.decoder.out_channels
+
+    @property
+    def all_out_channels(self):
+        return self.decoder.all_out_channels
+
+    def __init__(
+        self, encoder: nn.Module,
+        decoder: nn.Module,
+        skip: Union[bool, Literal["+"]] = True,
+    ) -> None:
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.skip = skip
+
+    def forward(self, inp, *, return_all=False):
+        """
+        Parameters
+        ----------
+        inp : (B, nb_features[0], *inp_size)
+            Input tensor
+        return_all : bool
+            Return all intermediate output tensors (at each level).
+
+        Returns
+        -------
+        out : [tuple of] (B, nb_features[n], *out_size[n]) tensor
+            Output tensor(s).
+
+            - If `return_all`, return all intermediate tensors, from
+              coarsest to finest.
+            - Else, return the final tensor only.
+        """
+        out = self.encoder(inp, return_all=bool(self.skip))
+        if self.skip:
+            out = list(reversed(out))
+        else:
+            out = [out]
+        return self.decoder(*out, return_all=return_all)
+
+
+class UNet(UNetBase):
     """A UNet
 
     !!! tip "Diagram"
@@ -92,18 +142,6 @@ class UNet(nn.Module):
         for Biomedical Image Segmentation."**
         _MICCAI_ (2015). [arxiv:1505.04597](https://arxiv.org/abs/1505.04597)
     """  # noqa: E501
-
-    @property
-    def inp_channels(self):
-        return self.encoder.inp_channels
-
-    @property
-    def out_channels(self):
-        return self.decoder.out_channels
-
-    @property
-    def all_out_channels(self):
-        return self.decoder.all_out_channels
 
     def __init__(
         self,
@@ -203,8 +241,7 @@ class UNet(nn.Module):
             unpool_mode = 'interpol'
 
         # build encoder/decoder
-        super().__init__()
-        self.encoder = ConvEncoder(
+        encoder = ConvEncoder(
             ndim,
             nb_features=enc_features,
             mul_features=1,
@@ -220,7 +257,7 @@ class UNet(nn.Module):
             pool_factor=pool_factor,
             pool_mode=pool_mode,
         )
-        self.decoder = ConvDecoder(
+        decoder = ConvDecoder(
             ndim,
             nb_features=dec_features,
             nb_levels=nb_levels_decoder,
@@ -236,29 +273,4 @@ class UNet(nn.Module):
             unpool_factor=pool_factor,
             unpool_mode=unpool_mode,
         )
-        self.skip = skip
-
-    def forward(self, inp, *, return_all=False):
-        """
-        Parameters
-        ----------
-        inp : (B, nb_features[0], *inp_size)
-            Input tensor
-        return_all : bool
-            Return all intermediate output tensors (at each level).
-
-        Returns
-        -------
-        out : [tuple of] (B, nb_features[n], *out_size[n]) tensor
-            Output tensor(s).
-
-            - If `return_all`, return all intermediate tensors, from
-              coarsest to finest.
-            - Else, return the final tensor only.
-        """
-        out = self.encoder(inp, return_all=bool(self.skip))
-        if self.skip:
-            out = list(reversed(out))
-        else:
-            out = [out]
-        return self.decoder(*out, return_all=return_all)
+        super().__init__(encoder, decoder, skip)

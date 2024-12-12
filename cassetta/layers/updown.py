@@ -9,11 +9,12 @@ __all__ = [
 # externals
 from torch import nn
 from torch import Tensor
+from typing_extensions import Optional, Tuple, Union
 
 # internals
 from cassetta.core.utils import ensure_list
 from cassetta.core.typing import (
-    OneOrSeveral, InterpolationType, BoundType, Optional
+    OneOrSeveral, InterpolationType, BoundType
 )
 
 # local
@@ -36,6 +37,10 @@ class DownConv(nn.Module):
     def out_channels(self) -> int:
         return self.conv.out_channels
 
+    @property
+    def ndim(self) -> int:
+        return len(self.conv.kernel_size)
+
     def __init__(
         self,
         ndim: int,
@@ -56,6 +61,7 @@ class DownConv(nn.Module):
             Downsampling factor
         """
         out_channels = out_channels or inp_channels
+        factor = ensure_list(factor, ndim)
         super().__init__()
         Conv = getattr(nn, f'Conv{ndim}d')
         self.conv = Conv(
@@ -76,15 +82,19 @@ class DownConv(nn.Module):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_spatial) tensor
+        inp : (*batch, inp_channels, *inp_spatial) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, out_channels, *out_spatial) tensor
+        out : (*batch, out_channels, *out_spatial) tensor
             Output downsampled tensor
         """
-        return self.conv(inp)
+        batch = inp.shape[:-self.ndim-1]
+        inp = inp.reshape((-1,) + inp.shape[-self.ndim-1:])
+        out = self.conv(inp)
+        out = out.reshape(batch + out.shape[-self.ndim-1:])
+        return out
 
 
 class UpConv(nn.Module):
@@ -101,6 +111,10 @@ class UpConv(nn.Module):
     @property
     def out_channels(self) -> int:
         return self.conv.out_channels
+
+    @property
+    def ndim(self) -> int:
+        return len(self.conv.kernel_size)
 
     def __init__(
         self,
@@ -122,6 +136,7 @@ class UpConv(nn.Module):
             Downsampling factor
         """
         out_channels = out_channels or inp_channels
+        factor = ensure_list(factor, ndim)
         super().__init__()
         Conv = getattr(nn, f'ConvTranspose{ndim}d')
         self.conv = Conv(
@@ -142,15 +157,19 @@ class UpConv(nn.Module):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_spatial) tensor
+        inp : (*batch, inp_channels, *inp_spatial) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, out_channels, *out_spatial) tensor
+        out : (*batch, out_channels, *out_spatial) tensor
             Output downsampled tensor
         """
-        return self.conv(inp)
+        batch = inp.shape[:-self.ndim-1]
+        inp = inp.reshape((-1,) + inp.shape[-self.ndim-1:])
+        out = self.conv(inp)
+        out = out.reshape(batch + out.shape[-self.ndim-1:])
+        return out
 
 
 class DownPool(nn.Sequential):
@@ -163,6 +182,10 @@ class DownPool(nn.Sequential):
     Cinp -[maxpool ÷2]-> Cinp -[conv 1x1x1]-> -> Cout
     ```
     """
+
+    @property
+    def ndim(self) -> int:
+        return len(self[0].kernel_size)
 
     def __init__(
         self,
@@ -190,6 +213,7 @@ class DownPool(nn.Sequential):
         MaxPool = getattr(nn, f'MaxPool{ndim}d')
         Conv = getattr(nn, f'Conv{ndim}d')
         out_channels = out_channels or inp_channels
+        factor = ensure_list(factor, ndim)
         layers = [MaxPool(
             kernel_size=factor,
             stride=factor,
@@ -211,28 +235,34 @@ class DownPool(nn.Sequential):
     def return_indices(self):
         return self[0].return_indices
 
-    def forward(self, x):
+    def forward(self, inp: Tensor) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_spatial) tensor
+        inp : (*batch, inp_channels, *inp_spatial) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, out_channels, *out_spatial) tensor
+        out : (*batch, out_channels, *out_spatial) tensor
             Output downsampled tensor
-        indices : (B, out_channels, *out_spatial) tensor[long]
+        indices : (*batch, out_channels, *out_spatial) tensor[long]
             Argmax of the maxpooling operation.
             Only returned if `return_indices=True`
         """
+        batch = inp.shape[:-self.ndim-1]
+        inp = inp.reshape((-1,) + inp.shape[-self.ndim-1:])
         if self[0].return_indices:
             pool, conv = self
-            x, ind = pool(x)
-            x = conv(x)
-            return x, ind
+            inp, ind = pool(inp)
+            out = conv(inp)
+            out = out.reshape(batch + out.shape[-self.ndim-1:])
+            ind = ind.reshape(batch + ind.shape[-self.ndim-1:])
+            return out, ind
         else:
-            return super().forward(x)
+            out = super().forward(inp)
+            out = out.reshape(batch + out.shape[-self.ndim-1:])
+            return out
 
 
 class UpPool(nn.Sequential):
@@ -248,6 +278,10 @@ class UpPool(nn.Sequential):
     Cinp -[conv 1x1x1]-> Cout -> -[maxunpool x2]-> Cout
     ```
     """
+
+    @property
+    def ndim(self) -> int:
+        return len(self[0].kernel_size)
 
     def __init__(
         self,
@@ -272,6 +306,7 @@ class UpPool(nn.Sequential):
         MaxUnpool = getattr(nn, f'MaxUnpool{ndim}d')
         Conv = getattr(nn, f'Conv{ndim}d')
         out_channels = out_channels or inp_channels
+        factor = ensure_list(factor, ndim)
         layers = []
         if out_channels != inp_channels:
             layers += [Conv(
@@ -293,19 +328,23 @@ class UpPool(nn.Sequential):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_spatial) tensor
+        inp : (*batch, inp_channels, *inp_spatial) tensor
             Input tensor
-        indices : (B, out_channels, *inp_spatial) tensor[long]
+        indices : (*batch, out_channels, *inp_spatial) tensor[long]
             Indices returned by `DownPool` or `MaxPool{ndim}d`
 
         Returns
         -------
-        out : (B, out_channels, *out_spatial) tensor
+        out : (*batch, out_channels, *out_spatial) tensor
             Output upsampled tensor
         """
+        batch = inp.shape[:-self.ndim-1]
+        inp = inp.reshape((-1,) + inp.shape[-self.ndim-1:])
+        indices = inp.reshape((-1,) + indices.shape[-self.ndim-1:])
         conv, unpool = self
         out = conv(inp)
         out = unpool(out, indices)
+        out = out.reshape(batch + out.shape[-self.ndim-1:])
         return out
 
 
@@ -348,7 +387,6 @@ class DownInterpol(nn.Sequential):
         prefilter : bool
             Apply spline pre-filter (= interpolates the input)
         """
-        super().__init__()
         Conv = getattr(nn, f'Conv{ndim}d')
         out_channels = out_channels or inp_channels
         factor = list(map(lambda x: 1/x, ensure_list(factor, ndim)))
@@ -367,6 +405,7 @@ class DownInterpol(nn.Sequential):
         super().__init__(*layers)
         self.inp_channels = inp_channels
         self.out_channels = out_channels
+        self.ndim = ndim
 
 
 class UpInterpol(nn.Sequential):
@@ -408,7 +447,6 @@ class UpInterpol(nn.Sequential):
         prefilter : bool
             Apply spline pre-filter (= interpolates the input)
         """
-        super().__init__()
         Conv = getattr(nn, f'Conv{ndim}d')
         out_channels = out_channels or inp_channels
         layers = []
@@ -427,3 +465,4 @@ class UpInterpol(nn.Sequential):
         super().__init__(*layers)
         self.inp_channels = inp_channels
         self.out_channels = out_channels
+        self.ndim = ndim

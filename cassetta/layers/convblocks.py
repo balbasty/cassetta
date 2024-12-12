@@ -84,12 +84,20 @@ class ConvBlockBase(nn.Sequential):
             out_channels
         )
 
-        conv = make_conv(ndim, inp_channels, out_channels, **(optc or {}))
-        norm = make_norm(norm, norm_channels, **(optn or {}))
-        dropout = make_dropout(dropout, **(optd or {}))
-        activation = make_activation(activation, **(opta or {}))
+        optc = optc or {}
+        optn = optn or {}
+        optd = optd or {}
+        opta = opta or {}
+        optx = optx or {}
+        optn.setdefault('dim', -ndim-1)
+        optd.setdefault('ndim', ndim)
+
+        conv = make_conv(ndim, inp_channels, out_channels, **optc)
+        norm = make_norm(norm, norm_channels, **optn)
+        dropout = make_dropout(dropout, **optd)
+        activation = make_activation(activation, **opta)
         attention = make_attention(attention, channels=attention_channels,
-                                   ndim=ndim, **(optx or {}))
+                                   ndim=ndim, **optx)
 
         # Assign submodules in order
         for o in self.order:
@@ -273,12 +281,12 @@ class ConvBlock(ConvBlockBase):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_size) tensor
+        inp : (*batch, inp_channels, *inp_size) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, out_channels, *out_size) tensor
+        out : (*batch, out_channels, *out_size) tensor
             Output downsampled tensor
         """
         return super().forward(inp)
@@ -478,14 +486,14 @@ class DownGroup(nn.Sequential):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_size) tensor
+        inp : (*batch, inp_channels, *inp_size) tensor
             Input tensor
 
         Returns
         -------
-        out : (B, out_channels, *out_size) tensor
+        out : (*batch, out_channels, *out_size) tensor
             Output downsampled tensor
-        indices : (B, out_channels, *out_size) tensor[long]
+        indices : (*batch, out_channels, *out_size) tensor[long]
             Indices, if `return_indices=True`.
         """
         down, block = self
@@ -741,20 +749,20 @@ class UpGroup(nn.Sequential):
         """
         Parameters
         ----------
-        inp : (B, inp_channels, *inp_size) tensor
+        inp : (*batch, inp_channels, *inp_size) tensor
             Input tensor
-        *skips : (B, skip_channels, *inp_size) tensor
+        *skips : (*batch, skip_channels, *inp_size) tensor
             Skipped tensors
 
         Other Parameters
         ----------------
-        indices : (B, out_tensor, *inp_size) tensor[long]
+        indices : (*batch, out_tensor, *inp_size) tensor[long]
             Unpool indices. Only if `module_up` is an
             [`UpPool`][cassetta.layers.UpPool].
 
         Returns
         -------
-        out : (B, out_channels, *out_size) tensor
+        out : (*batch, out_channels, *out_size) tensor
             Output downsampled tensor
         """
         up, conv = self
@@ -765,7 +773,7 @@ class UpGroup(nn.Sequential):
                 for skip in skips:
                     out += skip
             else:
-                out = torch.cat([out, *skips], dim=1)
+                out = torch.cat([out, *skips], dim=-(up.ndim+1))
         return conv(out)
 
 

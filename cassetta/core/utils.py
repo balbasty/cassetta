@@ -10,7 +10,8 @@ __all__ = [
     'import_submodules',
     'refresh_experiment_dir',
     'delete_files_with_pattern',
-    'find_checkpoint'
+    'find_checkpoint',
+    'argalias',
 ]
 # stdlib
 import glob
@@ -24,9 +25,10 @@ from importlib import import_module
 # externals
 import torch
 from torch import Tensor
+from typing_extensions import List, Tuple, Any, Optional, Mapping, Callable
 
 # internals
-from cassetta.core.typing import DeviceType, List, Tuple, Any, Optional
+from cassetta.core.typing import DeviceType
 
 
 def ensure_list(
@@ -459,3 +461,31 @@ def find_checkpoint(
 
     # If a match is found, return the first (there should only be one)
     return matches[0] if matches else None
+
+
+def argalias(mapping: Mapping[str, str]) -> Callable:
+    """
+    Decorator to specify that some arguments have valid aliases.
+    """
+
+    def decorator(func: Callable) -> Callable:
+
+        def wrapper(*args, **kwargs):
+            for true_value, aliases in mapping.items():
+                if isinstance(aliases, str):
+                    aliases = [aliases]
+                for alias in aliases:
+                    if alias in kwargs:
+                        if true_value in kwargs:
+                            raise ValueError(
+                                "Cannot use both versions of an alias:",
+                                true_value,
+                                alias
+                            )
+                        kwargs[true_value] = kwargs.pop(alias)
+                        break
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

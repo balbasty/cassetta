@@ -5,6 +5,7 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.modules.dropout import _DropoutNd as ChannelDropoutBase
+from typing_extensions import Callable, Optional
 
 # internals
 from cassetta.core.typing import DropoutType
@@ -45,17 +46,30 @@ def make_dropout(dropout: DropoutType, **kwargs):
 
 
 class ChannelDropout(ChannelDropoutBase):
+    """
+    Randomly zeros out channels at each forward pass.
+    """
+
+    def __init__(self, *args, ndim: Optional[int] = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.ndim = ndim
 
     def forward(self, inp: Tensor) -> Tensor:
         """
         Parameters
         ----------
-        inp : (B, C, *size) tensor
+        inp : (*batch, channel, *size) tensor
             Input tensor
 
-        out : (B, C, *size) tensor
+        out : (*batch, channel, *size) tensor
             Output tensor
         """
-        ndim = inp.ndim - 2
-        dropout = getattr(F, f'dropout{ndim}d')
-        return dropout(inp, self.p, self.training, self.inplace)
+        ndim = self.ndim
+        if ndim is None:
+            ndim = inp.ndim - 2
+        dropout: Callable[[Tensor], Tensor] = getattr(F, f'dropout{ndim}d')
+        batch = inp.shape[:-ndim-1]
+        inp = inp.reshape((-1,) + inp.shape[-ndim-1:])
+        out = dropout(inp, self.p, self.training, self.inplace)
+        out = out.reshape(batch + out.shape[-ndim-1:])
+        return out
